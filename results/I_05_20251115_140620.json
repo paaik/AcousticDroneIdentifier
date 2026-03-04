@@ -1,0 +1,162 @@
+{
+  "file": "C:\\Users\\apata\\OneDrive\\Documents\\Documents scolaires\\Hackaton Drone shazam\\ThaoRepo\\NewRepo\\DroneDetector\\test_audio\\droneI\\I_05.wav",
+  "timestamp": "20251115_140620",
+  "config": {
+    "window_size": 2.0,
+    "hop_size": 1,
+    "conf_threshold": 0.5,
+    "sample_rate": 22050
+  },
+  "raw_detections": [
+    {
+      "start": 0.0,
+      "end": 2.0,
+      "class": "droneI",
+      "confidence": 1.0
+    },
+    {
+      "start": 1.0,
+      "end": 3.0,
+      "class": "droneI",
+      "confidence": 0.9999723037083944
+    },
+    {
+      "start": 2.0,
+      "end": 4.0,
+      "class": "droneI",
+      "confidence": 0.9999584555625916
+    },
+    {
+      "start": 3.0,
+      "end": 5.0,
+      "class": "droneA",
+      "confidence": 0.5892804563045502
+    },
+    {
+      "start": 4.0,
+      "end": 6.0,
+      "class": "droneA",
+      "confidence": 0.6377114256223043
+    },
+    {
+      "start": 5.0,
+      "end": 7.0,
+      "class": "droneA",
+      "confidence": 0.6688566505908966
+    },
+    {
+      "start": 6.0,
+      "end": 8.0,
+      "class": "droneA",
+      "confidence": 0.7345733642578125
+    },
+    {
+      "start": 7.0,
+      "end": 9.0,
+      "class": "droneI",
+      "confidence": 0.9541381299495697
+    },
+    {
+      "start": 8.0,
+      "end": 10.0,
+      "class": "droneI",
+      "confidence": 0.9680051207542419
+    },
+    {
+      "start": 9.0,
+      "end": 11.0,
+      "class": "droneI",
+      "confidence": 0.9919803341229757
+    },
+    {
+      "start": 10.0,
+      "end": 12.0,
+      "class": "droneI",
+      "confidence": 0.9826621611913046
+    },
+    {
+      "start": 11.0,
+      "end": 13.0,
+      "class": "droneI",
+      "confidence": 0.8608695864677429
+    },
+    {
+      "start": 12.0,
+      "end": 14.0,
+      "class": "droneI",
+      "confidence": 0.7444594105084738
+    },
+    {
+      "start": 13.0,
+      "end": 15.0,
+      "class": "droneI",
+      "confidence": 0.6779919664065043
+    },
+    {
+      "start": 14.0,
+      "end": 16.0,
+      "class": "droneI",
+      "confidence": 0.6539674798647562
+    },
+    {
+      "start": 15.0,
+      "end": 17.0,
+      "class": "droneI",
+      "confidence": 0.6573011875152588
+    },
+    {
+      "start": 16.0,
+      "end": 18.0,
+      "class": "droneA",
+      "confidence": 0.7988817691802979
+    },
+    {
+      "start": 17.0,
+      "end": 19.0,
+      "class": "droneA",
+      "confidence": 0.7200019558270773
+    },
+    {
+      "start": 18.0,
+      "end": 20.0,
+      "class": "droneA",
+      "confidence": 0.6916100978851318
+    },
+    {
+      "start": 19.0,
+      "end": 21.0,
+      "class": "droneA",
+      "confidence": 0.611752063035965
+    }
+  ],
+  "merged_detections": [
+    {
+      "start": 0.0,
+      "end": 4.0,
+      "class": "droneI",
+      "confidence": 0.9999769197569953,
+      "duration": 4.0
+    },
+    {
+      "start": 3.0,
+      "end": 8.0,
+      "class": "droneA",
+      "confidence": 0.6576054741938909,
+      "duration": 5.0
+    },
+    {
+      "start": 7.0,
+      "end": 17.0,
+      "class": "droneI",
+      "confidence": 0.8323750418645365,
+      "duration": 10.0
+    },
+    {
+      "start": 16.0,
+      "end": 21.0,
+      "class": "droneA",
+      "confidence": 0.705561471482118,
+      "duration": 5.0
+    }
+  ]
+}
