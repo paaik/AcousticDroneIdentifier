@@ -38,15 +38,15 @@ checkpoint = torch.load(MODEL_PATH, map_location=device)
 # Vérifier si c'est un checkpoint complet ou juste le state_dict
 if isinstance(checkpoint, dict) and 'class_names' in checkpoint:
     CLASS_NAMES = checkpoint['class_names']
-    print(f"📋 Classes chargées du checkpoint: {CLASS_NAMES}")
-    print(f"📊 Best F1: {checkpoint['f1_score']:.3f}, Epoch: {checkpoint['epoch']}")
+    print(f"Classes in charge of the checkpoint: {CLASS_NAMES}")
+    print(f"Best F1: {checkpoint['f1_score']:.3f}, Epoch: {checkpoint['epoch']}")
 else:
     # Fallback: lire depuis le dossier data_melspec
     CLASS_NAMES = sorted([
         c for c in os.listdir(DATA_MEL_DIR)
         if os.path.isdir(os.path.join(DATA_MEL_DIR, c))
     ])
-    print(f"📋 Classes détectées depuis {DATA_MEL_DIR}: {CLASS_NAMES}")
+    print(f" Classes detected from {DATA_MEL_DIR}: {CLASS_NAMES}")
 
 num_classes = len(CLASS_NAMES)
 
@@ -61,8 +61,8 @@ else:
 model.to(device)
 model.eval()
 
-print(f"✅ Modèle chargé sur {device}")
-print(f"📦 Nombre de classes: {num_classes}\n")
+print(f"Model loaded on: {device}")
+print(f"Number of classes: {num_classes}\n")
 
 
 # ==============================
@@ -144,7 +144,7 @@ def predict_segment(y_segment):
 # PREDICT BATCH OF WINDOWS (faster)
 # ==============================
 def predict_batch(y_segments):
-    """Prédire plusieurs segments en batch pour accélérer"""
+    """Predicting multiple segments in batches to accelerate processing"""
     mels = [make_melspec(y_seg) for y_seg in y_segments]
     mel_tensors = torch.stack([torch.tensor(mel).float() for mel in mels]).unsqueeze(1).to(device)
     
@@ -302,7 +302,7 @@ def merge_detections(timeline, min_duration=0.5):
 # SMOOTHING: MAJORITY VOTING
 # ==============================
 def smooth_predictions(timeline, window=3):
-    """Appliquer un lissage par vote majoritaire"""
+    """Apply smoothing by majority voting"""
     if len(timeline) < window:
         return timeline
     
@@ -311,7 +311,7 @@ def smooth_predictions(timeline, window=3):
         start_idx = max(0, i - window // 2)
         end_idx = min(len(timeline), i + window // 2 + 1)
         
-        # vote majoritaire sur les classes
+        # majority vote of the classes
         classes = [timeline[j][2] for j in range(start_idx, end_idx)]
         confs = [timeline[j][3] for j in range(start_idx, end_idx)]
         
@@ -340,7 +340,7 @@ def sliding_window_detect(filepath, use_batch=True):
     window_len = int(WINDOW_SIZE * SAMPLE_RATE)
     hop_len = int(HOP_SIZE * SAMPLE_RATE)
 
-    # Extraire tous les segments
+    # Extract all segments
     segments = []
     timestamps = []
     
@@ -351,7 +351,7 @@ def sliding_window_detect(filepath, use_batch=True):
     
     print(f"Processing {len(segments)} windows...")
     
-    # Prédire en batch ou segment par segment
+    # Predict in batch or segment by segment
     all_predictions = []
     
     if use_batch and len(segments) > 0:
@@ -500,7 +500,7 @@ def demo_mc_dropout_batch(filepath, num_segments=5):
 # ==============================
 if __name__ == "__main__":
     #test_file = r"C:\Users\apata\OneDrive\Documents\Documents scolaires\Hackaton Drone shazam\ThaoRepo\NewRepo\DroneDetector\test_audio\droneJ\J_09.wav"
-    test_file = "test_audio/droneJ/J_09.wav"
+    test_file = "test_audio/droneA/A_03.wav"
     if not os.path.exists(test_file):
         print(f"File Not Found: {test_file}")
         print("\nTest Audio Corrupted test_audio/:")
@@ -511,20 +511,20 @@ if __name__ == "__main__":
         print("DRONE DETECTION - Standard Predictions")
         print("="*70 + "\n")
         
-        # Exécuter la détection
+        # Execute detection
         predictions = sliding_window_detect(test_file, use_batch=True)
         
-        # Vote majoritaire
+        # Majority vote
         winner, winner_count, total_windows = get_majority_vote(predictions)
         
-        # Afficher le résultat
+        # Display results
         print("\n" + "="*70)
         print("Final Results")
         print("="*70)
         print(f"\nType of Drone Detected: {winner.upper()}")
         print(f"Votes: {winner_count}/{total_windows} fenêtres ({winner_count/total_windows*100:.1f}%)")
         
-        # Afficher la répartition complète
+        # Show full breakdown of votes
         print(f"\nBreakdown of Votes:")
         vote_counts = Counter(predictions)
         for cls, count in vote_counts.most_common():
@@ -534,7 +534,12 @@ if __name__ == "__main__":
         
         print("\n" + "="*70)
         
-
+        # DEMO: Monte Carlo Dropout Uncertainty Estimation
+        # MONTE CARLO DROPOUT DEMONSTRATION")
+        # print("="*70)
+        # print("This demonstrates uncertainty quantification using MC dropout.")
+        # print("The model performs multiple stochastic forward passes to estimate")
+        # print("confidence intervals around predictions.\n")
         
         # Single segment demo
         if os.path.exists(test_file):
@@ -545,3 +550,31 @@ if __name__ == "__main__":
             demo_mc_dropout_batch(test_file, num_segments=5)
         
 
+	# print("\n" + "="*70)
+        # print("MC Dropout Tutorial:")
+        # print("="*70)
+#         print("""
+# To use Monte Carlo dropout in your code:
+
+# 1. Enable in configuration:
+#    USE_MC_DROPOUT = True
+#    MC_DROPOUT_SAMPLES = 25  # More = better but slower
+   
+# 2. Single prediction with uncertainty:
+#    cls, mean_conf, lower_ci, upper_ci, mc_probs, uncertainty = \\
+#        predict_segment_with_mc_dropout(y_segment, n_samples=25)
+   
+# 3. Batch predictions with uncertainty:
+#    results = predict_batch_with_mc_dropout(segments, n_samples=25)
+   
+# 4. Interpret results:
+#    - mean_conf: Average predicted probability for the class
+#    - [lower_ci, upper_ci]: Confidence interval bounds (95% default)
+#    - uncertainty: Standard deviation across MC samples
+#    - Wider CI = Higher uncertainty = Less confident prediction
+   
+# 5. Advanced: Access all MC predictions:
+#    mc_probs has shape (n_samples, n_classes)
+#    - Row mean = expected probability per class
+#    - Row std = uncertainty per class
+#         """)
