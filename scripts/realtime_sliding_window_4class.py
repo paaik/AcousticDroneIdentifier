@@ -5,7 +5,7 @@ import torch
 import os
 import time
 from collections import deque
-from train_cnn_4class import DroneCNN
+from train_cnn import DroneCNN
 
 # ==============================
 # CONFIG
@@ -23,15 +23,12 @@ DATA_MEL_DIR = "data_melspec"     # contains 4 class folders
 # ==============================
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-CLASS_NAMES = sorted([
-    c for c in os.listdir(DATA_MEL_DIR)
-    if os.path.isdir(os.path.join(DATA_MEL_DIR, c))
-])
-
+checkpoint = torch.load(MODEL_PATH, map_location=device)
+CLASS_NAMES = checkpoint['class_names']
 num_classes = len(CLASS_NAMES)
 
 model = DroneCNN(num_classes)
-model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
+model.load_state_dict(checkpoint['model_state_dict'])
 model.to(device)
 model.eval()
 
