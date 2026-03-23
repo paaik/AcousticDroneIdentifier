@@ -5,7 +5,9 @@ import torch
 import os
 import time
 from collections import deque
-from train_cnn import DroneCNN
+import signal
+import threading
+from train_cnn_4class import DroneCNN
 
 # ==============================
 # CONFIG
@@ -24,11 +26,17 @@ DATA_MEL_DIR = "data_melspec"     # contains 4 class folders
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 checkpoint = torch.load(MODEL_PATH, map_location=device)
-CLASS_NAMES = checkpoint['class_names']
+CLASS_NAMES = checkpoint.get('class_names', sorted([c for c in os.listdir(DATA_MEL_DIR) if os.path.isdir(os.path.join(DATA_MEL_DIR, c))]))
 num_classes = len(CLASS_NAMES)
 
-model = DroneCNN(num_classes)
-model.load_state_dict(checkpoint['model_state_dict'])
+model = DroneCNN(num_classes, dropout=0.3)
+if 'model_state_dict' in checkpoint:
+    missing, unexpected = model.load_state_dict(checkpoint['model_state_dict'], strict=False)
+else:
+    missing, unexpected = model.load_state_dict(checkpoint, strict=False)
+if missing or unexpected:
+    print('Warning: state_dict mismatch', 'missing', missing, 'unexpected', unexpected)
+
 model.to(device)
 model.eval()
 
@@ -129,17 +137,26 @@ def audio_callback(indata, frames, time, status):
 # ==============================
 # START STREAM
 # ==============================
+stop_event = threading.Event()
+
+def _shutdown(signum, frame):
+    print("\nKeyboard interrupt received, stopping...")
+    stop_event.set()
+
+signal.signal(signal.SIGINT, _shutdown)
+
 with sd.InputStream(
     channels=1,
     samplerate=SAMPLE_RATE,
     blocksize=hop_size,    # process every 0.5 seconds
     callback=audio_callback,
 ):
-
-# Initialize the queue (add this before your audio_callback)
-
-
-# ... (keep your callback and model loading code here) ...
     print("🎙 Listening with SLIDING WINDOW... Press Ctrl+C to stop.\n")
-    while True:
-        time.sleep(0.1)
+    try:
+        while not stop_event.is_set():
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        # fallback in case signal handler doesn't fire on some platforms
+        print("\nKeyboard interrupt caught in loop")
+    finally:
+        print("Stopping stream...")

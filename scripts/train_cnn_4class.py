@@ -10,6 +10,7 @@ DATA_DIR = "data_melspec"   # vẫn dùng thư mục này
 BATCH_SIZE = 16
 EPOCHS = 35
 LR = 0.001
+DROPOUT = 0.3
 
 
 # -----------------------------
@@ -38,26 +39,30 @@ class MelDataset(Dataset):
 # CNN MODEL
 # -----------------------------
 class DroneCNN(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self, num_classes, dropout=0.3):
         super().__init__()
         self.features = nn.Sequential(
             nn.Conv2d(1, 16, 3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2),
+            nn.Dropout2d(dropout),
 
             nn.Conv2d(16, 32, 3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2),
+            nn.Dropout2d(dropout),
 
             nn.Conv2d(32, 64, 3, padding=1),
             nn.ReLU(),
             nn.AdaptiveAvgPool2d((1, 1)),
         )
+        self.dropout = nn.Dropout(dropout)
         self.classifier = nn.Linear(64, num_classes)
 
     def forward(self, x):
         x = self.features(x)
         x = x.view(x.size(0), -1)
+        x = self.dropout(x)
         return self.classifier(x)
 
 
@@ -106,7 +111,7 @@ def train():
 
     num_classes = len(class_names)
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = DroneCNN(num_classes).to(device)
+    model = DroneCNN(num_classes, dropout=DROPOUT).to(device)
 
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)

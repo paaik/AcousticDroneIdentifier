@@ -23,20 +23,22 @@ audio_queue = queue.Queue() # The bridge between audio and AI
 # LOAD MODEL
 # ==============================
 device = "cuda" if torch.cuda.is_available() else "cpu"
-CLASS_NAMES = sorted([c for c in os.listdir(DATA_MEL_DIR) if os.path.isdir(os.path.join(DATA_MEL_DIR, c))])
-model = DroneCNN(len(CLASS_NAMES))
-# Load the checkpoint dictionary
 checkpoint = torch.load(MODEL_PATH, map_location=device)
+CLASS_NAMES = checkpoint.get('class_names', sorted([c for c in os.listdir(DATA_MEL_DIR) if os.path.isdir(os.path.join(DATA_MEL_DIR, c))]))
+num_classes = len(CLASS_NAMES)
 
-# Extract only the model weights (the 'model_state_dict' key)
-model.load_state_dict(checkpoint['model_state_dict'])
+model = DroneCNN(num_classes, dropout=0.3)
+if 'model_state_dict' in checkpoint:
+    missing, unexpected = model.load_state_dict(checkpoint['model_state_dict'], strict=False)
+else:
+    missing, unexpected = model.load_state_dict(checkpoint, strict=False)
+if missing or unexpected:
+    print('Warning: state_dict mismatch', 'missing', missing, 'unexpected', unexpected)
 
-# Optional: You can even extract the class names from the file now!
-if 'class_names' in checkpoint:
-    CLASS_NAMES = checkpoint['class_names']
-    print(f"Loaded classes from checkpoint: {CLASS_NAMES}")
 model.to(device)
 model.eval()
+
+print(f"Loaded classes from checkpoint: {CLASS_NAMES}")
 
 # Warm up the GPU
 model(torch.zeros(1, 1, 64, 87).to(device)) 
