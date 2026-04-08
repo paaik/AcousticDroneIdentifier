@@ -19,7 +19,7 @@ CONF_THRESHOLD = 0.20             # lower a bit for real scenarios
 
 MODEL_PATH = "models/drone_cnn_4class_best.pth"
 DATA_MEL_DIR = "data_melspec"     # contains 4 class folders
-TEST_AUDIO_FILE = "test_audio/droneI/I_05.wav"  # Change this to test different files
+TEST_AUDIO_FILE = "test_audio/droneA/A_15.wav"  # Change this to test different files
 
 # ==============================
 # LOAD MODEL + CLASS NAMES
@@ -41,7 +41,7 @@ if missing or unexpected:
 model.to(device)
 model.eval()
 
-print("🎧 Real-time Sliding Window Detection Initialized")
+print("Real-time Sliding Window Detection Initialized")
 print("Classes:", CLASS_NAMES, "\n")
 
 
@@ -117,7 +117,7 @@ def audio_callback(indata, frames, time, status):
 
     # print result
     if avg_conf < CONF_THRESHOLD:
-        print(f"❓ unknown (avg_conf={avg_conf:.2f})")
+        print(f"unknown (avg_conf={avg_conf:.2f})")
     else:
         emoji = {
             "droneA": "A",
@@ -154,7 +154,7 @@ if mode == "1":
     try:
         audio_data, sr = librosa.load(TEST_AUDIO_FILE, sr=SAMPLE_RATE, mono=True)
     except Exception as e:
-        print(f"❌ Error loading audio file: {e}")
+        print(f"Error loading audio file: {e}")
         exit(1)
     
     print("🎧 Processing with SLIDING WINDOW...\n")
@@ -187,7 +187,7 @@ if mode == "1":
         
         # print result
         if avg_conf < CONF_THRESHOLD:
-            print(f"❓ unknown (avg_conf={avg_conf:.2f})")
+            print(f"unknown (avg_conf={avg_conf:.2f})")
         else:
             emoji = {
                 "droneA": "A",
@@ -204,7 +204,7 @@ if mode == "1":
             
             print(f"{emoji} {smoothed_class} (avg_conf={avg_conf:.2f})")
     
-    print("\n✅ Processing complete!")
+    print("\nProcessing complete")
 
 elif mode == "2":
     # ==============================
@@ -234,5 +234,5 @@ elif mode == "2":
             print("Stopping stream...")
 
 else:
-    print("❌ Invalid choice. Please enter 1 or 2.")
+    print("Invalid choice. Please enter 1 or 2.")
     exit(1)
