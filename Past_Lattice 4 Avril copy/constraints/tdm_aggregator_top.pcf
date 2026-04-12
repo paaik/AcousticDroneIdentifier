@@ -1,0 +1,22 @@
+# Open-source toolchain pin constraints for tdm_aggregator_top
+#
+# Only implemented HDL ports are included.
+# Schematic-only nets not present in HDL are intentionally omitted:
+#   PI_SDA, PI_SCL, PL_WS copy-to-Pi, board reset input
+
+# Board clock from official iceFUN documentation:
+# "An on-board 12MHz oscillator feeds pin P7 (GBIN5)."
+set_io clk_12m P7
+
+# Microphone-side interface
+set_io mic_sck J12
+set_io mic_ws  H12
+set_io mic_sd1 G14
+set_io mic_sd2 G12
+set_io mic_sd3 F14
+set_io mic_sd4 F12
+
+# Raspberry Pi-side interface
+set_io pi_aln D12
+set_io pi_sd  C14
+set_io pi_sck B14

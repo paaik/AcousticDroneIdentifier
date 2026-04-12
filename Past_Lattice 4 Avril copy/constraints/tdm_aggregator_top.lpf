@@ -1,0 +1,51 @@
+# Lattice LPF constraints for tdm_aggregator_top
+#
+# Source mapping comes from the provided schematics:
+# - FPGA breakoutboard / beamforming page
+# - Raspberry Pi 8-pin connector page
+#
+# Only signals that exist as top-level HDL ports are constrained here.
+# Board nets present in the schematic but not implemented in HDL are left out:
+#   PI_SDA, PI_SCL, PL_WS copy-to-Pi, board reset input
+#
+# Assumed top-level entity: tdm_aggregator_top
+# Assumed I/O standard: LVCMOS33
+
+BLOCK RESETPATHS;
+BLOCK ASYNCPATHS;
+
+# Board clock from official iceFUN documentation:
+# "An on-board 12MHz oscillator feeds pin P7 (GBIN5)."
+LOCATE COMP "clk_12m" SITE "P7";
+IOBUF PORT "clk_12m" IO_TYPE=LVCMOS33;
+
+# Microphone-side interface
+LOCATE COMP "mic_sck" SITE "J12";
+IOBUF PORT "mic_sck" IO_TYPE=LVCMOS33;
+
+LOCATE COMP "mic_ws" SITE "H12";
+IOBUF PORT "mic_ws" IO_TYPE=LVCMOS33;
+
+LOCATE COMP "mic_sd1" SITE "G14";
+IOBUF PORT "mic_sd1" IO_TYPE=LVCMOS33;
+
+LOCATE COMP "mic_sd2" SITE "G12";
+IOBUF PORT "mic_sd2" IO_TYPE=LVCMOS33;
+
+LOCATE COMP "mic_sd3" SITE "F14";
+IOBUF PORT "mic_sd3" IO_TYPE=LVCMOS33;
+
+LOCATE COMP "mic_sd4" SITE "F12";
+IOBUF PORT "mic_sd4" IO_TYPE=LVCMOS33;
+
+# Raspberry Pi-side interface
+LOCATE COMP "pi_aln" SITE "D12";
+IOBUF PORT "pi_aln" IO_TYPE=LVCMOS33;
+
+LOCATE COMP "pi_sd" SITE "C14";
+IOBUF PORT "pi_sd" IO_TYPE=LVCMOS33;
+
+LOCATE COMP "pi_sck" SITE "B14";
+IOBUF PORT "pi_sck" IO_TYPE=LVCMOS33;
+
+# Dedicated board reset is intentionally not used as user I/O here.
