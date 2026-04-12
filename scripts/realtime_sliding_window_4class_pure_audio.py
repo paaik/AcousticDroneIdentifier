@@ -19,7 +19,7 @@ CONF_THRESHOLD = 0.20             # lower a bit for real scenarios
 
 MODEL_PATH = "models/drone_cnn_4class_best.pth"
 DATA_MEL_DIR = "data_melspec"     # contains 4 class folders
-TEST_AUDIO_FILE = "test_audio/droneA/A_15.wav"  # Change this to test different files
+TEST_AUDIO_FILE = "test_audio/droneH/H_02.wav"  # Change this to test different files
 
 # ==============================
 # LOAD MODEL + CLASS NAMES
@@ -136,53 +136,46 @@ def audio_callback(indata, frames, time, status):
 
 
 # ==============================
-# MODE SELECTION
+# PROCESS TEST AUDIO FUNCTION
 # ==============================
-print("\n" + "="*50)
-print("SELECT AUDIO SOURCE:")
-print("  Press 1 for TEST AUDIO FILE")
-print("  Press 2 for MICROPHONE")
-print("="*50)
-
-mode = input("\nEnter your choice (1 or 2): ").strip()
-
-if mode == "1":
-    # ==============================
-    # PROCESS TEST AUDIO FILE
-    # ==============================
-    print(f"\n🎙 Loading audio file: {TEST_AUDIO_FILE}")
+def process_audio_file(file_path):
+    """
+    Load and process an audio file with sliding window detection.
+    Returns True if successful, False otherwise.
+    """
+    print(f"\nLoading audio file: {file_path}")
     try:
-        audio_data, sr = librosa.load(TEST_AUDIO_FILE, sr=SAMPLE_RATE, mono=True)
+        audio_data, sr = librosa.load(file_path, sr=SAMPLE_RATE, mono=True)
     except Exception as e:
         print(f"Error loading audio file: {e}")
-        exit(1)
+        return False
     
-    print("🎧 Processing with SLIDING WINDOW...\n")
+    print("Processing with SLIDING WINDOW...\n")
     
     # Reset buffers
-    audio_buffer = np.zeros(buffer_size, dtype=np.float32)
-    prediction_history = deque(maxlen=5)
+    local_buffer = np.zeros(buffer_size, dtype=np.float32)
+    local_history = deque(maxlen=5)
     
     # Simulate streaming by processing chunks
     for i in range(0, len(audio_data) - buffer_size, hop_size):
         new_audio = audio_data[i:i + hop_size]
         
         # shift buffer left & append new audio
-        audio_buffer = np.roll(audio_buffer, -len(new_audio))
-        audio_buffer[-len(new_audio):] = new_audio
+        local_buffer = np.roll(local_buffer, -len(new_audio))
+        local_buffer[-len(new_audio):] = new_audio
         
         # Run inference
-        cls, conf = predict_segment(audio_buffer)
+        cls, conf = predict_segment(local_buffer)
         
         # smoothing: store predictions in history
-        prediction_history.append((cls, conf))
+        local_history.append((cls, conf))
         
         # majority vote for class
-        classes = [c for c, _ in prediction_history]
+        classes = [c for c, _ in local_history]
         smoothed_class = max(set(classes), key=classes.count)
         
         # average confidence
-        confidences = [c for _, c in prediction_history]
+        confidences = [c for _, c in local_history]
         avg_conf = sum(confidences) / len(confidences)
         
         # print result
@@ -205,6 +198,46 @@ if mode == "1":
             print(f"{emoji} {smoothed_class} (avg_conf={avg_conf:.2f})")
     
     print("\nProcessing complete")
+    return True
+
+
+# ==============================
+# MODE SELECTION
+# ==============================
+print("\n" + "="*50)
+print("SELECT AUDIO SOURCE:")
+print("  Press 1 for TEST AUDIO FILE")
+print("  Press 2 for MICROPHONE")
+print("="*50)
+
+mode = input("\nEnter your choice (1 or 2): ").strip()
+
+if mode == "1":
+    # ==============================
+    # INTERACTIVE TEST AUDIO MODE
+    # ==============================
+    continue_testing = True
+    while continue_testing:
+        # Ask user for audio file path
+        file_path = input("\nEnter the audio file path: ").strip()
+        
+        # Remove quotes if the user included them
+        file_path = file_path.strip('"\'')
+        
+        # Process the audio file
+        if process_audio_file(file_path):
+            # Ask if user wants to test another file
+            while True:
+                response = input("\nWould you like to test another audio file? (yes/no): ").strip().lower()
+                if response in ['yes', 'y']:
+                    break
+                elif response in ['no', 'n']:
+                    continue_testing = False
+                    break
+                else:
+                    print("Please enter 'yes' or 'no'")
+    
+    print("\nTesting session ended")
 
 elif mode == "2":
     # ==============================
@@ -224,7 +257,7 @@ elif mode == "2":
         blocksize=hop_size,    # process every 0.5 seconds
         callback=audio_callback,
     ):
-        print("🎙 Listening with SLIDING WINDOW... Press Ctrl+C to stop.\n")
+        print("Listening with SLIDING WINDOW... Press Ctrl+C to stop.\n")
         try:
             while not stop_event.is_set():
                 time.sleep(0.1)

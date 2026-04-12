@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split
 
 DATA_DIR = "data_melspec"   # vẫn dùng thư mục này
 BATCH_SIZE = 16
-EPOCHS = 35
+EPOCHS = 45
 LR = 0.001
 DROPOUT = 0.3
 
