@@ -1,0 +1,170 @@
+<html>
+<head>
+<title>CNN.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cf8e6d;}
+.s1 { color: #bcbec4;}
+.s2 { color: #bcbec4;}
+.s3 { color: #6aab73;}
+.s4 { color: #7a7e85;}
+.s5 { color: #2aacb8;}
+</style>
+</head>
+<body bgcolor="#191a1c">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+CNN.py</font>
+</center></td></tr></table>
+<pre><span class="s0">import </span><span class="s1">os</span>
+<span class="s0">import </span><span class="s1">numpy </span><span class="s0">as </span><span class="s1">np</span>
+<span class="s0">import </span><span class="s1">torch</span>
+<span class="s0">import </span><span class="s1">torch</span><span class="s2">.</span><span class="s1">nn </span><span class="s0">as </span><span class="s1">nn</span>
+<span class="s0">from </span><span class="s1">torch</span><span class="s2">.</span><span class="s1">utils</span><span class="s2">.</span><span class="s1">data </span><span class="s0">import </span><span class="s1">Dataset</span><span class="s2">, </span><span class="s1">DataLoader</span>
+<span class="s0">from </span><span class="s1">sklearn</span><span class="s2">.</span><span class="s1">model_selection </span><span class="s0">import </span><span class="s1">train_test_split</span>
+
+
+<span class="s1">DATA_DIR </span><span class="s2">= </span><span class="s3">&quot;/Users/joshuarose/Downloads/audio_mels&quot;   </span><span class="s4"># vẫn dùng thư mục này</span>
+<span class="s1">BATCH_SIZE </span><span class="s2">= </span><span class="s5">16</span>
+<span class="s1">EPOCHS </span><span class="s2">= </span><span class="s5">35</span>
+<span class="s1">LR </span><span class="s2">= </span><span class="s5">0.001</span>
+
+
+<span class="s4"># -----------------------------</span>
+<span class="s4"># Dataset</span>
+<span class="s4"># -----------------------------</span>
+<span class="s0">class </span><span class="s1">MelDataset</span><span class="s2">(</span><span class="s1">Dataset</span><span class="s2">):</span>
+    <span class="s0">def </span><span class="s1">__init__</span><span class="s2">(</span><span class="s1">self</span><span class="s2">, </span><span class="s1">file_paths</span><span class="s2">, </span><span class="s1">labels</span><span class="s2">):</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">file_paths </span><span class="s2">= </span><span class="s1">file_paths</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">labels </span><span class="s2">= </span><span class="s1">labels</span>
+
+    <span class="s0">def </span><span class="s1">__len__</span><span class="s2">(</span><span class="s1">self</span><span class="s2">):</span>
+        <span class="s0">return </span><span class="s1">len</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">file_paths</span><span class="s2">)</span>
+
+    <span class="s0">def </span><span class="s1">__getitem__</span><span class="s2">(</span><span class="s1">self</span><span class="s2">, </span><span class="s1">idx</span><span class="s2">):</span>
+        <span class="s1">mel </span><span class="s2">= </span><span class="s1">np</span><span class="s2">.</span><span class="s1">load</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">file_paths</span><span class="s2">[</span><span class="s1">idx</span><span class="s2">])</span>
+
+        <span class="s4"># normalize per-sample</span>
+        <span class="s1">mel </span><span class="s2">= (</span><span class="s1">mel </span><span class="s2">- </span><span class="s1">mel</span><span class="s2">.</span><span class="s1">mean</span><span class="s2">()) / (</span><span class="s1">mel</span><span class="s2">.</span><span class="s1">std</span><span class="s2">() + </span><span class="s5">1e-6</span><span class="s2">)</span>
+
+        <span class="s1">mel </span><span class="s2">= </span><span class="s1">torch</span><span class="s2">.</span><span class="s1">tensor</span><span class="s2">(</span><span class="s1">mel</span><span class="s2">, </span><span class="s1">dtype</span><span class="s2">=</span><span class="s1">torch</span><span class="s2">.</span><span class="s1">float32</span><span class="s2">).</span><span class="s1">unsqueeze</span><span class="s2">(</span><span class="s5">0</span><span class="s2">)</span>
+        <span class="s1">label </span><span class="s2">= </span><span class="s1">torch</span><span class="s2">.</span><span class="s1">tensor</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">labels</span><span class="s2">[</span><span class="s1">idx</span><span class="s2">], </span><span class="s1">dtype</span><span class="s2">=</span><span class="s1">torch</span><span class="s2">.</span><span class="s1">long</span><span class="s2">)</span>
+        <span class="s0">return </span><span class="s1">mel</span><span class="s2">, </span><span class="s1">label</span>
+
+
+<span class="s4"># -----------------------------</span>
+<span class="s4"># CNN MODEL</span>
+<span class="s4"># -----------------------------</span>
+<span class="s0">class </span><span class="s1">DroneCNN</span><span class="s2">(</span><span class="s1">nn</span><span class="s2">.</span><span class="s1">Module</span><span class="s2">):</span>
+    <span class="s0">def </span><span class="s1">__init__</span><span class="s2">(</span><span class="s1">self</span><span class="s2">, </span><span class="s1">num_classes</span><span class="s2">):</span>
+        <span class="s1">super</span><span class="s2">().</span><span class="s1">__init__</span><span class="s2">()</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">features </span><span class="s2">= </span><span class="s1">nn</span><span class="s2">.</span><span class="s1">Sequential</span><span class="s2">(</span>
+            <span class="s1">nn</span><span class="s2">.</span><span class="s1">Conv2d</span><span class="s2">(</span><span class="s5">1</span><span class="s2">, </span><span class="s5">16</span><span class="s2">, </span><span class="s5">3</span><span class="s2">, </span><span class="s1">padding</span><span class="s2">=</span><span class="s5">1</span><span class="s2">),</span>
+            <span class="s1">nn</span><span class="s2">.</span><span class="s1">ReLU</span><span class="s2">(),</span>
+            <span class="s1">nn</span><span class="s2">.</span><span class="s1">MaxPool2d</span><span class="s2">(</span><span class="s5">2</span><span class="s2">),</span>
+
+            <span class="s1">nn</span><span class="s2">.</span><span class="s1">Conv2d</span><span class="s2">(</span><span class="s5">16</span><span class="s2">, </span><span class="s5">32</span><span class="s2">, </span><span class="s5">3</span><span class="s2">, </span><span class="s1">padding</span><span class="s2">=</span><span class="s5">1</span><span class="s2">),</span>
+            <span class="s1">nn</span><span class="s2">.</span><span class="s1">ReLU</span><span class="s2">(),</span>
+            <span class="s1">nn</span><span class="s2">.</span><span class="s1">MaxPool2d</span><span class="s2">(</span><span class="s5">2</span><span class="s2">),</span>
+
+            <span class="s1">nn</span><span class="s2">.</span><span class="s1">Conv2d</span><span class="s2">(</span><span class="s5">32</span><span class="s2">, </span><span class="s5">64</span><span class="s2">, </span><span class="s5">3</span><span class="s2">, </span><span class="s1">padding</span><span class="s2">=</span><span class="s5">1</span><span class="s2">),</span>
+            <span class="s1">nn</span><span class="s2">.</span><span class="s1">ReLU</span><span class="s2">(),</span>
+            <span class="s1">nn</span><span class="s2">.</span><span class="s1">AdaptiveAvgPool2d</span><span class="s2">((</span><span class="s5">1</span><span class="s2">, </span><span class="s5">1</span><span class="s2">)),</span>
+        <span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">classifier </span><span class="s2">= </span><span class="s1">nn</span><span class="s2">.</span><span class="s1">Linear</span><span class="s2">(</span><span class="s5">64</span><span class="s2">, </span><span class="s1">num_classes</span><span class="s2">)</span>
+
+    <span class="s0">def </span><span class="s1">forward</span><span class="s2">(</span><span class="s1">self</span><span class="s2">, </span><span class="s1">x</span><span class="s2">):</span>
+        <span class="s1">x </span><span class="s2">= </span><span class="s1">self</span><span class="s2">.</span><span class="s1">features</span><span class="s2">(</span><span class="s1">x</span><span class="s2">)</span>
+        <span class="s1">x </span><span class="s2">= </span><span class="s1">x</span><span class="s2">.</span><span class="s1">view</span><span class="s2">(</span><span class="s1">x</span><span class="s2">.</span><span class="s1">size</span><span class="s2">(</span><span class="s5">0</span><span class="s2">), -</span><span class="s5">1</span><span class="s2">)</span>
+        <span class="s0">return </span><span class="s1">self</span><span class="s2">.</span><span class="s1">classifier</span><span class="s2">(</span><span class="s1">x</span><span class="s2">)</span>
+
+
+<span class="s4"># -----------------------------</span>
+<span class="s4"># Load dataset</span>
+<span class="s4"># -----------------------------</span>
+<span class="s0">def </span><span class="s1">load_dataset</span><span class="s2">():</span>
+    <span class="s1">file_paths </span><span class="s2">= []</span>
+    <span class="s1">labels </span><span class="s2">= []</span>
+    <span class="s1">class_names </span><span class="s2">= </span><span class="s1">sorted</span><span class="s2">(</span><span class="s1">os</span><span class="s2">.</span><span class="s1">listdir</span><span class="s2">(</span><span class="s1">DATA_DIR</span><span class="s2">))</span>
+
+    <span class="s4"># chỉ lấy folder thật, tránh file lạ</span>
+    <span class="s1">class_names </span><span class="s2">= [</span><span class="s1">c </span><span class="s0">for </span><span class="s1">c </span><span class="s0">in </span><span class="s1">class_names </span><span class="s0">if </span><span class="s1">os</span><span class="s2">.</span><span class="s1">path</span><span class="s2">.</span><span class="s1">isdir</span><span class="s2">(</span><span class="s1">os</span><span class="s2">.</span><span class="s1">path</span><span class="s2">.</span><span class="s1">join</span><span class="s2">(</span><span class="s1">DATA_DIR</span><span class="s2">, </span><span class="s1">c</span><span class="s2">))]</span>
+
+    <span class="s1">print</span><span class="s2">(</span><span class="s3">&quot;Classes detected:&quot;</span><span class="s2">, </span><span class="s1">class_names</span><span class="s2">)</span>
+
+    <span class="s0">for </span><span class="s1">label</span><span class="s2">, </span><span class="s1">cname </span><span class="s0">in </span><span class="s1">enumerate</span><span class="s2">(</span><span class="s1">class_names</span><span class="s2">):</span>
+        <span class="s1">folder </span><span class="s2">= </span><span class="s1">os</span><span class="s2">.</span><span class="s1">path</span><span class="s2">.</span><span class="s1">join</span><span class="s2">(</span><span class="s1">DATA_DIR</span><span class="s2">, </span><span class="s1">cname</span><span class="s2">)</span>
+        <span class="s0">for </span><span class="s1">f </span><span class="s0">in </span><span class="s1">os</span><span class="s2">.</span><span class="s1">listdir</span><span class="s2">(</span><span class="s1">folder</span><span class="s2">):</span>
+            <span class="s0">if </span><span class="s1">f</span><span class="s2">.</span><span class="s1">endswith</span><span class="s2">(</span><span class="s3">&quot;.npy&quot;</span><span class="s2">):</span>
+                <span class="s1">file_paths</span><span class="s2">.</span><span class="s1">append</span><span class="s2">(</span><span class="s1">os</span><span class="s2">.</span><span class="s1">path</span><span class="s2">.</span><span class="s1">join</span><span class="s2">(</span><span class="s1">folder</span><span class="s2">, </span><span class="s1">f</span><span class="s2">))</span>
+                <span class="s1">labels</span><span class="s2">.</span><span class="s1">append</span><span class="s2">(</span><span class="s1">label</span><span class="s2">)</span>
+
+    <span class="s0">return </span><span class="s1">file_paths</span><span class="s2">, </span><span class="s1">labels</span><span class="s2">, </span><span class="s1">class_names</span>
+
+
+<span class="s4"># -----------------------------</span>
+<span class="s4"># TRAINING LOOP</span>
+<span class="s4"># -----------------------------</span>
+<span class="s0">def </span><span class="s1">train</span><span class="s2">():</span>
+    <span class="s1">file_paths</span><span class="s2">, </span><span class="s1">labels</span><span class="s2">, </span><span class="s1">class_names </span><span class="s2">= </span><span class="s1">load_dataset</span><span class="s2">()</span>
+
+    <span class="s1">train_files</span><span class="s2">, </span><span class="s1">val_files</span><span class="s2">, </span><span class="s1">train_labels</span><span class="s2">, </span><span class="s1">val_labels </span><span class="s2">= </span><span class="s1">train_test_split</span><span class="s2">(</span>
+        <span class="s1">file_paths</span><span class="s2">,</span>
+        <span class="s1">labels</span><span class="s2">,</span>
+        <span class="s1">test_size</span><span class="s2">=</span><span class="s5">0.2</span><span class="s2">,</span>
+        <span class="s1">random_state</span><span class="s2">=</span><span class="s5">42</span><span class="s2">,</span>
+        <span class="s1">stratify</span><span class="s2">=</span><span class="s1">labels   </span><span class="s4"># ✔ quan trọng cho cân bằng class</span>
+    <span class="s2">)</span>
+
+    <span class="s1">train_ds </span><span class="s2">= </span><span class="s1">MelDataset</span><span class="s2">(</span><span class="s1">train_files</span><span class="s2">, </span><span class="s1">train_labels</span><span class="s2">)</span>
+    <span class="s1">val_ds </span><span class="s2">= </span><span class="s1">MelDataset</span><span class="s2">(</span><span class="s1">val_files</span><span class="s2">, </span><span class="s1">val_labels</span><span class="s2">)</span>
+
+    <span class="s1">train_dl </span><span class="s2">= </span><span class="s1">DataLoader</span><span class="s2">(</span><span class="s1">train_ds</span><span class="s2">, </span><span class="s1">batch_size</span><span class="s2">=</span><span class="s1">BATCH_SIZE</span><span class="s2">, </span><span class="s1">shuffle</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+    <span class="s1">val_dl </span><span class="s2">= </span><span class="s1">DataLoader</span><span class="s2">(</span><span class="s1">val_ds</span><span class="s2">, </span><span class="s1">batch_size</span><span class="s2">=</span><span class="s1">BATCH_SIZE</span><span class="s2">)</span>
+
+    <span class="s1">num_classes </span><span class="s2">= </span><span class="s1">len</span><span class="s2">(</span><span class="s1">class_names</span><span class="s2">)</span>
+    <span class="s1">device </span><span class="s2">= </span><span class="s3">&quot;cuda&quot; </span><span class="s0">if </span><span class="s1">torch</span><span class="s2">.</span><span class="s1">cuda</span><span class="s2">.</span><span class="s1">is_available</span><span class="s2">() </span><span class="s0">else </span><span class="s3">&quot;cpu&quot;</span>
+    <span class="s1">model </span><span class="s2">= </span><span class="s1">DroneCNN</span><span class="s2">(</span><span class="s1">num_classes</span><span class="s2">).</span><span class="s1">to</span><span class="s2">(</span><span class="s1">device</span><span class="s2">)</span>
+
+    <span class="s1">loss_fn </span><span class="s2">= </span><span class="s1">nn</span><span class="s2">.</span><span class="s1">CrossEntropyLoss</span><span class="s2">()</span>
+    <span class="s1">optimizer </span><span class="s2">= </span><span class="s1">torch</span><span class="s2">.</span><span class="s1">optim</span><span class="s2">.</span><span class="s1">Adam</span><span class="s2">(</span><span class="s1">model</span><span class="s2">.</span><span class="s1">parameters</span><span class="s2">(), </span><span class="s1">lr</span><span class="s2">=</span><span class="s1">LR</span><span class="s2">)</span>
+
+    <span class="s0">for </span><span class="s1">epoch </span><span class="s0">in </span><span class="s1">range</span><span class="s2">(</span><span class="s1">EPOCHS</span><span class="s2">):</span>
+        <span class="s1">model</span><span class="s2">.</span><span class="s1">train</span><span class="s2">()</span>
+        <span class="s1">running_loss </span><span class="s2">= </span><span class="s5">0</span>
+
+        <span class="s0">for </span><span class="s1">mel</span><span class="s2">, </span><span class="s1">label </span><span class="s0">in </span><span class="s1">train_dl</span><span class="s2">:</span>
+            <span class="s1">mel</span><span class="s2">, </span><span class="s1">label </span><span class="s2">= </span><span class="s1">mel</span><span class="s2">.</span><span class="s1">to</span><span class="s2">(</span><span class="s1">device</span><span class="s2">), </span><span class="s1">label</span><span class="s2">.</span><span class="s1">to</span><span class="s2">(</span><span class="s1">device</span><span class="s2">)</span>
+
+            <span class="s1">optimizer</span><span class="s2">.</span><span class="s1">zero_grad</span><span class="s2">()</span>
+            <span class="s1">pred </span><span class="s2">= </span><span class="s1">model</span><span class="s2">(</span><span class="s1">mel</span><span class="s2">)</span>
+            <span class="s1">loss </span><span class="s2">= </span><span class="s1">loss_fn</span><span class="s2">(</span><span class="s1">pred</span><span class="s2">, </span><span class="s1">label</span><span class="s2">)</span>
+            <span class="s1">loss</span><span class="s2">.</span><span class="s1">backward</span><span class="s2">()</span>
+            <span class="s1">optimizer</span><span class="s2">.</span><span class="s1">step</span><span class="s2">()</span>
+
+            <span class="s1">running_loss </span><span class="s2">+= </span><span class="s1">loss</span><span class="s2">.</span><span class="s1">item</span><span class="s2">()</span>
+
+        <span class="s4"># Validation</span>
+        <span class="s1">model</span><span class="s2">.</span><span class="s1">eval</span><span class="s2">()</span>
+        <span class="s1">correct</span><span class="s2">, </span><span class="s1">total </span><span class="s2">= </span><span class="s5">0</span><span class="s2">, </span><span class="s5">0</span>
+        <span class="s0">with </span><span class="s1">torch</span><span class="s2">.</span><span class="s1">no_grad</span><span class="s2">():</span>
+            <span class="s0">for </span><span class="s1">mel</span><span class="s2">, </span><span class="s1">label </span><span class="s0">in </span><span class="s1">val_dl</span><span class="s2">:</span>
+                <span class="s1">mel</span><span class="s2">, </span><span class="s1">label </span><span class="s2">= </span><span class="s1">mel</span><span class="s2">.</span><span class="s1">to</span><span class="s2">(</span><span class="s1">device</span><span class="s2">), </span><span class="s1">label</span><span class="s2">.</span><span class="s1">to</span><span class="s2">(</span><span class="s1">device</span><span class="s2">)</span>
+                <span class="s1">preds </span><span class="s2">= </span><span class="s1">model</span><span class="s2">(</span><span class="s1">mel</span><span class="s2">)</span>
+                <span class="s1">correct </span><span class="s2">+= (</span><span class="s1">preds</span><span class="s2">.</span><span class="s1">argmax</span><span class="s2">(</span><span class="s5">1</span><span class="s2">) == </span><span class="s1">label</span><span class="s2">).</span><span class="s1">sum</span><span class="s2">().</span><span class="s1">item</span><span class="s2">()</span>
+                <span class="s1">total </span><span class="s2">+= </span><span class="s1">label</span><span class="s2">.</span><span class="s1">size</span><span class="s2">(</span><span class="s5">0</span><span class="s2">)</span>
+
+        <span class="s1">val_acc </span><span class="s2">= </span><span class="s1">correct </span><span class="s2">/ </span><span class="s1">total </span><span class="s2">* </span><span class="s5">100</span>
+        <span class="s1">print</span><span class="s2">(</span><span class="s3">f&quot;Epoch </span><span class="s0">{</span><span class="s1">epoch</span><span class="s2">+</span><span class="s5">1</span><span class="s0">}</span><span class="s3">/</span><span class="s0">{</span><span class="s1">EPOCHS</span><span class="s0">} </span><span class="s3">| Loss: </span><span class="s0">{</span><span class="s1">running_loss</span><span class="s0">:</span><span class="s3">.3f</span><span class="s0">} </span><span class="s3">| Val Acc: </span><span class="s0">{</span><span class="s1">val_acc</span><span class="s0">:</span><span class="s3">.2f</span><span class="s0">}</span><span class="s3">%&quot;</span><span class="s2">)</span>
+
+    <span class="s1">os</span><span class="s2">.</span><span class="s1">makedirs</span><span class="s2">(</span><span class="s3">&quot;models&quot;</span><span class="s2">, </span><span class="s1">exist_ok</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+    <span class="s1">torch</span><span class="s2">.</span><span class="s1">save</span><span class="s2">(</span><span class="s1">model</span><span class="s2">.</span><span class="s1">state_dict</span><span class="s2">(), </span><span class="s3">&quot;/Users/joshuarose/Downloads/models/drone_cnn_4class.pth&quot;</span><span class="s2">)</span>
+    <span class="s1">print</span><span class="s2">(</span><span class="s3">&quot;</span><span class="s0">\n</span><span class="s3">Model saved → /Users/joshuarose/Downloads/models/drone_cnn_4class.pth&quot;</span><span class="s2">)</span>
+    <span class="s1">print</span><span class="s2">(</span><span class="s3">&quot;Classes:&quot;</span><span class="s2">, </span><span class="s1">class_names</span><span class="s2">)</span>
+
+
+<span class="s0">if </span><span class="s1">__name__ </span><span class="s2">== </span><span class="s3">&quot;__main__&quot;</span><span class="s2">:</span>
+    <span class="s1">train</span><span class="s2">()</span></pre>
+</body>
+</html>

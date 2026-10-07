@@ -1,0 +1,308 @@
+<html>
+<head>
+<title>CNN test.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cf8e6d;}
+.s1 { color: #bcbec4;}
+.s2 { color: #7a7e85;}
+.s3 { color: #bcbec4;}
+.s4 { color: #6aab73;}
+.s5 { color: #2aacb8;}
+.s6 { color: #5f826b; font-style: italic;}
+</style>
+</head>
+<body bgcolor="#191a1c">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+CNN test.py</font>
+</center></td></tr></table>
+<pre><span class="s0">import </span><span class="s1">numpy </span><span class="s0">as </span><span class="s1">np</span>
+<span class="s0">import </span><span class="s1">librosa</span>
+<span class="s0">import </span><span class="s1">torch</span>
+<span class="s0">import </span><span class="s1">os</span>
+<span class="s0">import </span><span class="s1">json</span>
+<span class="s0">from </span><span class="s1">collections </span><span class="s0">import </span><span class="s1">Counter</span>
+<span class="s0">from </span><span class="s1">datetime </span><span class="s0">import </span><span class="s1">datetime</span>
+<span class="s0">from </span><span class="s1">train_cnn </span><span class="s0">import </span><span class="s1">DroneCNN  </span><span class="s2"># dùng model class avec hyperparameter tuning</span>
+
+<span class="s2"># ==============================</span>
+<span class="s2"># CONFIG</span>
+<span class="s2"># ==============================</span>
+<span class="s1">MODEL_PATH </span><span class="s3">= </span><span class="s4">&quot;/Users/joshuarose/Downloads/models/drone_cnn_4class.pth&quot;</span>
+<span class="s1">DATA_MEL_DIR </span><span class="s3">= </span><span class="s4">&quot;/Users/joshuarose/Downloads/CNN_Training/audio_mels&quot;</span>
+
+<span class="s1">SAMPLE_RATE </span><span class="s3">= </span><span class="s5">22050</span>
+<span class="s1">WINDOW_SIZE </span><span class="s3">= </span><span class="s5">2.0  </span><span class="s2"># mỗi cửa sổ 2 giây</span>
+<span class="s1">HOP_SIZE </span><span class="s3">= </span><span class="s5">1  </span><span class="s2"># trượt 1 giây = 50% overlap</span>
+<span class="s1">CONF_THRESHOLD </span><span class="s3">= </span><span class="s5">0.50  </span><span class="s2"># reject nếu confidence &lt; 50%</span>
+<span class="s1">BATCH_SIZE </span><span class="s3">= </span><span class="s5">32  </span><span class="s2"># traiter plusieurs fenêtres à la fois</span>
+<span class="s1">SMOOTHING_WINDOW </span><span class="s3">= </span><span class="s5">3  </span><span class="s2"># nombre de prédictions consécutives pour lissage</span>
+
+<span class="s2"># ==============================</span>
+<span class="s2"># LOAD MODEL + CLASS NAMES</span>
+<span class="s2"># ==============================</span>
+<span class="s1">device </span><span class="s3">= </span><span class="s4">&quot;cuda&quot; </span><span class="s0">if </span><span class="s1">torch</span><span class="s3">.</span><span class="s1">cuda</span><span class="s3">.</span><span class="s1">is_available</span><span class="s3">() </span><span class="s0">else </span><span class="s4">&quot;cpu&quot;</span>
+
+<span class="s2"># Charger le checkpoint complet pour obtenir les class names</span>
+<span class="s1">checkpoint </span><span class="s3">= </span><span class="s1">torch</span><span class="s3">.</span><span class="s1">load</span><span class="s3">(</span><span class="s1">MODEL_PATH</span><span class="s3">, </span><span class="s1">map_location</span><span class="s3">=</span><span class="s1">device</span><span class="s3">)</span>
+
+<span class="s2"># Vérifier si c'est un checkpoint complet ou juste le state_dict</span>
+<span class="s0">if </span><span class="s1">isinstance</span><span class="s3">(</span><span class="s1">checkpoint</span><span class="s3">, </span><span class="s1">dict</span><span class="s3">) </span><span class="s0">and </span><span class="s4">'class_names' </span><span class="s0">in </span><span class="s1">checkpoint</span><span class="s3">:</span>
+    <span class="s1">CLASS_NAMES </span><span class="s3">= </span><span class="s1">checkpoint</span><span class="s3">[</span><span class="s4">'class_names'</span><span class="s3">]</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s4">f&quot;📋 Classes responsible for the checkpoint: </span><span class="s0">{</span><span class="s1">CLASS_NAMES</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s3">)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s4">f&quot;📊 Best F1: </span><span class="s0">{</span><span class="s1">checkpoint</span><span class="s3">[</span><span class="s4">'f1_score'</span><span class="s3">]</span><span class="s0">:</span><span class="s4">.3f</span><span class="s0">}</span><span class="s4">, Epoch: </span><span class="s0">{</span><span class="s1">checkpoint</span><span class="s3">[</span><span class="s4">'epoch'</span><span class="s3">]</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s3">)</span>
+<span class="s0">else</span><span class="s3">:</span>
+    <span class="s2"># Fallback: lire depuis le dossier data_melspec</span>
+    <span class="s1">CLASS_NAMES </span><span class="s3">= </span><span class="s1">sorted</span><span class="s3">([</span>
+        <span class="s1">c </span><span class="s0">for </span><span class="s1">c </span><span class="s0">in </span><span class="s1">os</span><span class="s3">.</span><span class="s1">listdir</span><span class="s3">(</span><span class="s1">DATA_MEL_DIR</span><span class="s3">)</span>
+        <span class="s0">if </span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">isdir</span><span class="s3">(</span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">join</span><span class="s3">(</span><span class="s1">DATA_MEL_DIR</span><span class="s3">, </span><span class="s1">c</span><span class="s3">))</span>
+    <span class="s3">])</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s4">f&quot;📋 Classes detected since </span><span class="s0">{</span><span class="s1">DATA_MEL_DIR</span><span class="s0">}</span><span class="s4">: </span><span class="s0">{</span><span class="s1">CLASS_NAMES</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s3">)</span>
+
+<span class="s1">num_classes </span><span class="s3">= </span><span class="s1">len</span><span class="s3">(</span><span class="s1">CLASS_NAMES</span><span class="s3">)</span>
+
+<span class="s1">model </span><span class="s3">= </span><span class="s1">DroneCNN</span><span class="s3">(</span><span class="s1">num_classes</span><span class="s3">)  </span><span class="s2"># doit correspondre au DROPOUT de train_cnn.py</span>
+
+<span class="s2"># Charger les poids du modèle</span>
+<span class="s0">if </span><span class="s1">isinstance</span><span class="s3">(</span><span class="s1">checkpoint</span><span class="s3">, </span><span class="s1">dict</span><span class="s3">) </span><span class="s0">and </span><span class="s4">'model_state_dict' </span><span class="s0">in </span><span class="s1">checkpoint</span><span class="s3">:</span>
+    <span class="s1">model</span><span class="s3">.</span><span class="s1">load_state_dict</span><span class="s3">(</span><span class="s1">checkpoint</span><span class="s3">[</span><span class="s4">'model_state_dict'</span><span class="s3">])</span>
+<span class="s0">else</span><span class="s3">:</span>
+    <span class="s1">model</span><span class="s3">.</span><span class="s1">load_state_dict</span><span class="s3">(</span><span class="s1">checkpoint</span><span class="s3">)</span>
+
+<span class="s1">model</span><span class="s3">.</span><span class="s1">to</span><span class="s3">(</span><span class="s1">device</span><span class="s3">)</span>
+<span class="s1">model</span><span class="s3">.</span><span class="s1">eval</span><span class="s3">()</span>
+
+<span class="s1">print</span><span class="s3">(</span><span class="s4">f&quot;✅ Model uploaded to </span><span class="s0">{</span><span class="s1">device</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s3">)</span>
+<span class="s1">print</span><span class="s3">(</span><span class="s4">f&quot;📦 Number of classes: </span><span class="s0">{</span><span class="s1">num_classes</span><span class="s0">}\n</span><span class="s4">&quot;</span><span class="s3">)</span>
+
+
+<span class="s2"># ==============================</span>
+<span class="s2"># MEL SPECTROGRAM</span>
+<span class="s2"># ==============================</span>
+<span class="s0">def </span><span class="s1">make_melspec</span><span class="s3">(</span><span class="s1">y</span><span class="s3">, </span><span class="s1">sr</span><span class="s3">=</span><span class="s1">SAMPLE_RATE</span><span class="s3">):</span>
+    <span class="s1">mel </span><span class="s3">= </span><span class="s1">librosa</span><span class="s3">.</span><span class="s1">feature</span><span class="s3">.</span><span class="s1">melspectrogram</span><span class="s3">(</span>
+        <span class="s1">y</span><span class="s3">=</span><span class="s1">y</span><span class="s3">,</span>
+        <span class="s1">sr</span><span class="s3">=</span><span class="s1">sr</span><span class="s3">,</span>
+        <span class="s1">n_fft</span><span class="s3">=</span><span class="s5">1024</span><span class="s3">,</span>
+        <span class="s1">hop_length</span><span class="s3">=</span><span class="s5">256</span><span class="s3">,</span>
+        <span class="s1">n_mels</span><span class="s3">=</span><span class="s5">64</span>
+    <span class="s3">)</span>
+    <span class="s1">logmel </span><span class="s3">= </span><span class="s1">librosa</span><span class="s3">.</span><span class="s1">power_to_db</span><span class="s3">(</span><span class="s1">mel</span><span class="s3">, </span><span class="s1">ref</span><span class="s3">=</span><span class="s1">np</span><span class="s3">.</span><span class="s1">max</span><span class="s3">)</span>
+
+    <span class="s2"># normalize per mel</span>
+    <span class="s1">logmel </span><span class="s3">= (</span><span class="s1">logmel </span><span class="s3">- </span><span class="s1">logmel</span><span class="s3">.</span><span class="s1">mean</span><span class="s3">()) / (</span><span class="s1">logmel</span><span class="s3">.</span><span class="s1">std</span><span class="s3">() + </span><span class="s5">1e-6</span><span class="s3">)</span>
+    <span class="s0">return </span><span class="s1">logmel</span>
+
+
+<span class="s2"># ==============================</span>
+<span class="s2"># PREDICT SINGLE WINDOW</span>
+<span class="s2"># ==============================</span>
+<span class="s0">def </span><span class="s1">predict_segment</span><span class="s3">(</span><span class="s1">y_segment</span><span class="s3">):</span>
+    <span class="s1">mel </span><span class="s3">= </span><span class="s1">make_melspec</span><span class="s3">(</span><span class="s1">y_segment</span><span class="s3">)</span>
+    <span class="s1">mel_tensor </span><span class="s3">= </span><span class="s1">torch</span><span class="s3">.</span><span class="s1">tensor</span><span class="s3">(</span><span class="s1">mel</span><span class="s3">).</span><span class="s1">float</span><span class="s3">().</span><span class="s1">unsqueeze</span><span class="s3">(</span><span class="s5">0</span><span class="s3">).</span><span class="s1">unsqueeze</span><span class="s3">(</span><span class="s5">0</span><span class="s3">).</span><span class="s1">to</span><span class="s3">(</span><span class="s1">device</span><span class="s3">)</span>
+
+    <span class="s0">with </span><span class="s1">torch</span><span class="s3">.</span><span class="s1">no_grad</span><span class="s3">():</span>
+        <span class="s1">pred </span><span class="s3">= </span><span class="s1">model</span><span class="s3">(</span><span class="s1">mel_tensor</span><span class="s3">)</span>
+        <span class="s1">prob </span><span class="s3">= </span><span class="s1">torch</span><span class="s3">.</span><span class="s1">softmax</span><span class="s3">(</span><span class="s1">pred</span><span class="s3">, </span><span class="s1">dim</span><span class="s3">=</span><span class="s5">1</span><span class="s3">)</span>
+
+    <span class="s1">conf</span><span class="s3">, </span><span class="s1">cls </span><span class="s3">= </span><span class="s1">torch</span><span class="s3">.</span><span class="s1">max</span><span class="s3">(</span><span class="s1">prob</span><span class="s3">, </span><span class="s1">dim</span><span class="s3">=</span><span class="s5">1</span><span class="s3">)</span>
+    <span class="s0">return </span><span class="s1">CLASS_NAMES</span><span class="s3">[</span><span class="s1">cls</span><span class="s3">.</span><span class="s1">item</span><span class="s3">()], </span><span class="s1">conf</span><span class="s3">.</span><span class="s1">item</span><span class="s3">(), </span><span class="s1">prob</span><span class="s3">[</span><span class="s5">0</span><span class="s3">].</span><span class="s1">cpu</span><span class="s3">().</span><span class="s1">numpy</span><span class="s3">()</span>
+
+
+<span class="s2"># ==============================</span>
+<span class="s2"># PREDICT BATCH OF WINDOWS (faster)</span>
+<span class="s2"># ==============================</span>
+<span class="s0">def </span><span class="s1">predict_batch</span><span class="s3">(</span><span class="s1">y_segments</span><span class="s3">):</span>
+    <span class="s6">&quot;&quot;&quot;Prédire plusieurs segments en batch pour accélérer&quot;&quot;&quot;</span>
+    <span class="s1">mels </span><span class="s3">= [</span><span class="s1">make_melspec</span><span class="s3">(</span><span class="s1">y_seg</span><span class="s3">) </span><span class="s0">for </span><span class="s1">y_seg </span><span class="s0">in </span><span class="s1">y_segments</span><span class="s3">]</span>
+    <span class="s1">mel_tensors </span><span class="s3">= </span><span class="s1">torch</span><span class="s3">.</span><span class="s1">stack</span><span class="s3">([</span><span class="s1">torch</span><span class="s3">.</span><span class="s1">tensor</span><span class="s3">(</span><span class="s1">mel</span><span class="s3">).</span><span class="s1">float</span><span class="s3">() </span><span class="s0">for </span><span class="s1">mel </span><span class="s0">in </span><span class="s1">mels</span><span class="s3">]).</span><span class="s1">unsqueeze</span><span class="s3">(</span><span class="s5">1</span><span class="s3">).</span><span class="s1">to</span><span class="s3">(</span><span class="s1">device</span><span class="s3">)</span>
+
+    <span class="s0">with </span><span class="s1">torch</span><span class="s3">.</span><span class="s1">no_grad</span><span class="s3">():</span>
+        <span class="s1">preds </span><span class="s3">= </span><span class="s1">model</span><span class="s3">(</span><span class="s1">mel_tensors</span><span class="s3">)</span>
+        <span class="s1">probs </span><span class="s3">= </span><span class="s1">torch</span><span class="s3">.</span><span class="s1">softmax</span><span class="s3">(</span><span class="s1">preds</span><span class="s3">, </span><span class="s1">dim</span><span class="s3">=</span><span class="s5">1</span><span class="s3">)</span>
+
+    <span class="s1">confs</span><span class="s3">, </span><span class="s1">clss </span><span class="s3">= </span><span class="s1">torch</span><span class="s3">.</span><span class="s1">max</span><span class="s3">(</span><span class="s1">probs</span><span class="s3">, </span><span class="s1">dim</span><span class="s3">=</span><span class="s5">1</span><span class="s3">)</span>
+
+    <span class="s1">results </span><span class="s3">= []</span>
+    <span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">range</span><span class="s3">(</span><span class="s1">len</span><span class="s3">(</span><span class="s1">y_segments</span><span class="s3">)):</span>
+        <span class="s1">results</span><span class="s3">.</span><span class="s1">append</span><span class="s3">((</span><span class="s1">CLASS_NAMES</span><span class="s3">[</span><span class="s1">clss</span><span class="s3">[</span><span class="s1">i</span><span class="s3">].</span><span class="s1">item</span><span class="s3">()], </span><span class="s1">confs</span><span class="s3">[</span><span class="s1">i</span><span class="s3">].</span><span class="s1">item</span><span class="s3">(), </span><span class="s1">probs</span><span class="s3">[</span><span class="s1">i</span><span class="s3">].</span><span class="s1">cpu</span><span class="s3">().</span><span class="s1">numpy</span><span class="s3">()))</span>
+
+    <span class="s0">return </span><span class="s1">results</span>
+
+
+<span class="s2"># ==============================</span>
+<span class="s2"># POST-PROCESSING: MERGE CONSECUTIVE DETECTIONS</span>
+<span class="s2"># ==============================</span>
+<span class="s0">def </span><span class="s1">merge_detections</span><span class="s3">(</span><span class="s1">timeline</span><span class="s3">, </span><span class="s1">min_duration</span><span class="s3">=</span><span class="s5">0.5</span><span class="s3">):</span>
+    <span class="s6">&quot;&quot;&quot;Fusionner les détections consécutives de la même classe&quot;&quot;&quot;</span>
+    <span class="s0">if not </span><span class="s1">timeline</span><span class="s3">:</span>
+        <span class="s0">return </span><span class="s3">[]</span>
+
+    <span class="s1">merged </span><span class="s3">= []</span>
+    <span class="s1">current_start</span><span class="s3">, </span><span class="s1">current_end</span><span class="s3">, </span><span class="s1">current_cls</span><span class="s3">, </span><span class="s1">confs </span><span class="s3">= </span><span class="s1">timeline</span><span class="s3">[</span><span class="s5">0</span><span class="s3">][</span><span class="s5">0</span><span class="s3">], </span><span class="s1">timeline</span><span class="s3">[</span><span class="s5">0</span><span class="s3">][</span><span class="s5">1</span><span class="s3">], </span><span class="s1">timeline</span><span class="s3">[</span><span class="s5">0</span><span class="s3">][</span><span class="s5">2</span><span class="s3">], [</span><span class="s1">timeline</span><span class="s3">[</span><span class="s5">0</span><span class="s3">][</span><span class="s5">3</span><span class="s3">]]</span>
+
+    <span class="s0">for </span><span class="s1">t_start</span><span class="s3">, </span><span class="s1">t_end</span><span class="s3">, </span><span class="s1">cls</span><span class="s3">, </span><span class="s1">conf </span><span class="s0">in </span><span class="s1">timeline</span><span class="s3">[</span><span class="s5">1</span><span class="s3">:]:</span>
+        <span class="s0">if </span><span class="s1">cls </span><span class="s3">== </span><span class="s1">current_cls </span><span class="s0">and </span><span class="s1">t_start </span><span class="s3">- </span><span class="s1">current_end </span><span class="s3">&lt; </span><span class="s5">0.1</span><span class="s3">:  </span><span class="s2"># si même classe et gap &lt; 0.1s</span>
+            <span class="s1">current_end </span><span class="s3">= </span><span class="s1">t_end</span>
+            <span class="s1">confs</span><span class="s3">.</span><span class="s1">append</span><span class="s3">(</span><span class="s1">conf</span><span class="s3">)</span>
+        <span class="s0">else</span><span class="s3">:</span>
+            <span class="s2"># sauvegarder la détection précédente</span>
+            <span class="s1">avg_conf </span><span class="s3">= </span><span class="s1">np</span><span class="s3">.</span><span class="s1">mean</span><span class="s3">(</span><span class="s1">confs</span><span class="s3">)</span>
+            <span class="s1">duration </span><span class="s3">= </span><span class="s1">current_end </span><span class="s3">- </span><span class="s1">current_start</span>
+            <span class="s0">if </span><span class="s1">duration </span><span class="s3">&gt;= </span><span class="s1">min_duration</span><span class="s3">:</span>
+                <span class="s1">merged</span><span class="s3">.</span><span class="s1">append</span><span class="s3">((</span><span class="s1">current_start</span><span class="s3">, </span><span class="s1">current_end</span><span class="s3">, </span><span class="s1">current_cls</span><span class="s3">, </span><span class="s1">avg_conf</span><span class="s3">, </span><span class="s1">duration</span><span class="s3">))</span>
+            <span class="s2"># commencer une nouvelle détection</span>
+            <span class="s1">current_start</span><span class="s3">, </span><span class="s1">current_end</span><span class="s3">, </span><span class="s1">current_cls</span><span class="s3">, </span><span class="s1">confs </span><span class="s3">= </span><span class="s1">t_start</span><span class="s3">, </span><span class="s1">t_end</span><span class="s3">, </span><span class="s1">cls</span><span class="s3">, [</span><span class="s1">conf</span><span class="s3">]</span>
+
+    <span class="s2"># ajouter la dernière détection</span>
+    <span class="s1">avg_conf </span><span class="s3">= </span><span class="s1">np</span><span class="s3">.</span><span class="s1">mean</span><span class="s3">(</span><span class="s1">confs</span><span class="s3">)</span>
+    <span class="s1">duration </span><span class="s3">= </span><span class="s1">current_end </span><span class="s3">- </span><span class="s1">current_start</span>
+    <span class="s0">if </span><span class="s1">duration </span><span class="s3">&gt;= </span><span class="s1">min_duration</span><span class="s3">:</span>
+        <span class="s1">merged</span><span class="s3">.</span><span class="s1">append</span><span class="s3">((</span><span class="s1">current_start</span><span class="s3">, </span><span class="s1">current_end</span><span class="s3">, </span><span class="s1">current_cls</span><span class="s3">, </span><span class="s1">avg_conf</span><span class="s3">, </span><span class="s1">duration</span><span class="s3">))</span>
+
+    <span class="s0">return </span><span class="s1">merged</span>
+
+
+<span class="s2"># ==============================</span>
+<span class="s2"># SMOOTHING: MAJORITY VOTING</span>
+<span class="s2"># ==============================</span>
+<span class="s0">def </span><span class="s1">smooth_predictions</span><span class="s3">(</span><span class="s1">timeline</span><span class="s3">, </span><span class="s1">window</span><span class="s3">=</span><span class="s5">3</span><span class="s3">):</span>
+    <span class="s6">&quot;&quot;&quot;Appliquer un lissage par vote majoritaire&quot;&quot;&quot;</span>
+    <span class="s0">if </span><span class="s1">len</span><span class="s3">(</span><span class="s1">timeline</span><span class="s3">) &lt; </span><span class="s1">window</span><span class="s3">:</span>
+        <span class="s0">return </span><span class="s1">timeline</span>
+
+    <span class="s1">smoothed </span><span class="s3">= []</span>
+    <span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">range</span><span class="s3">(</span><span class="s1">len</span><span class="s3">(</span><span class="s1">timeline</span><span class="s3">)):</span>
+        <span class="s1">start_idx </span><span class="s3">= </span><span class="s1">max</span><span class="s3">(</span><span class="s5">0</span><span class="s3">, </span><span class="s1">i </span><span class="s3">- </span><span class="s1">window </span><span class="s3">// </span><span class="s5">2</span><span class="s3">)</span>
+        <span class="s1">end_idx </span><span class="s3">= </span><span class="s1">min</span><span class="s3">(</span><span class="s1">len</span><span class="s3">(</span><span class="s1">timeline</span><span class="s3">), </span><span class="s1">i </span><span class="s3">+ </span><span class="s1">window </span><span class="s3">// </span><span class="s5">2 </span><span class="s3">+ </span><span class="s5">1</span><span class="s3">)</span>
+
+        <span class="s2"># vote majoritaire sur les classes</span>
+        <span class="s1">classes </span><span class="s3">= [</span><span class="s1">timeline</span><span class="s3">[</span><span class="s1">j</span><span class="s3">][</span><span class="s5">2</span><span class="s3">] </span><span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">range</span><span class="s3">(</span><span class="s1">start_idx</span><span class="s3">, </span><span class="s1">end_idx</span><span class="s3">)]</span>
+        <span class="s1">confs </span><span class="s3">= [</span><span class="s1">timeline</span><span class="s3">[</span><span class="s1">j</span><span class="s3">][</span><span class="s5">3</span><span class="s3">] </span><span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">range</span><span class="s3">(</span><span class="s1">start_idx</span><span class="s3">, </span><span class="s1">end_idx</span><span class="s3">)]</span>
+
+        <span class="s1">majority_class </span><span class="s3">= </span><span class="s1">Counter</span><span class="s3">(</span><span class="s1">classes</span><span class="s3">).</span><span class="s1">most_common</span><span class="s3">(</span><span class="s5">1</span><span class="s3">)[</span><span class="s5">0</span><span class="s3">][</span><span class="s5">0</span><span class="s3">]</span>
+        <span class="s1">avg_conf </span><span class="s3">= </span><span class="s1">np</span><span class="s3">.</span><span class="s1">mean</span><span class="s3">([</span><span class="s1">confs</span><span class="s3">[</span><span class="s1">j</span><span class="s3">] </span><span class="s0">for </span><span class="s1">j </span><span class="s0">in </span><span class="s1">range</span><span class="s3">(</span><span class="s1">len</span><span class="s3">(</span><span class="s1">classes</span><span class="s3">)) </span><span class="s0">if </span><span class="s1">classes</span><span class="s3">[</span><span class="s1">j</span><span class="s3">] == </span><span class="s1">majority_class</span><span class="s3">])</span>
+
+        <span class="s1">smoothed</span><span class="s3">.</span><span class="s1">append</span><span class="s3">((</span><span class="s1">timeline</span><span class="s3">[</span><span class="s1">i</span><span class="s3">][</span><span class="s5">0</span><span class="s3">], </span><span class="s1">timeline</span><span class="s3">[</span><span class="s1">i</span><span class="s3">][</span><span class="s5">1</span><span class="s3">], </span><span class="s1">majority_class</span><span class="s3">, </span><span class="s1">avg_conf</span><span class="s3">))</span>
+
+    <span class="s0">return </span><span class="s1">smoothed</span>
+
+
+<span class="s2"># ==============================</span>
+<span class="s2"># SLIDING WINDOW DETECTION (avec batch processing)</span>
+<span class="s2"># ==============================</span>
+<span class="s0">def </span><span class="s1">sliding_window_detect</span><span class="s3">(</span><span class="s1">filepath</span><span class="s3">, </span><span class="s1">use_batch</span><span class="s3">=</span><span class="s0">True</span><span class="s3">):</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s4">f&quot;🔊 Processing: </span><span class="s0">{</span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">basename</span><span class="s3">(</span><span class="s1">filepath</span><span class="s3">)</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s3">)</span>
+
+    <span class="s2"># load full audio</span>
+    <span class="s1">y</span><span class="s3">, </span><span class="s1">sr </span><span class="s3">= </span><span class="s1">librosa</span><span class="s3">.</span><span class="s1">load</span><span class="s3">(</span><span class="s1">filepath</span><span class="s3">, </span><span class="s1">sr</span><span class="s3">=</span><span class="s0">None</span><span class="s3">, </span><span class="s1">mono</span><span class="s3">=</span><span class="s0">True</span><span class="s3">)</span>
+    <span class="s0">if </span><span class="s1">sr </span><span class="s3">!= </span><span class="s1">SAMPLE_RATE</span><span class="s3">:</span>
+        <span class="s1">y </span><span class="s3">= </span><span class="s1">librosa</span><span class="s3">.</span><span class="s1">resample</span><span class="s3">(</span><span class="s1">y</span><span class="s3">, </span><span class="s1">orig_sr</span><span class="s3">=</span><span class="s1">sr</span><span class="s3">, </span><span class="s1">target_sr</span><span class="s3">=</span><span class="s1">SAMPLE_RATE</span><span class="s3">)</span>
+
+    <span class="s1">duration </span><span class="s3">= </span><span class="s1">len</span><span class="s3">(</span><span class="s1">y</span><span class="s3">) / </span><span class="s1">SAMPLE_RATE</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s4">f&quot;📏 Duration: </span><span class="s0">{</span><span class="s1">duration</span><span class="s0">:</span><span class="s4">.2f</span><span class="s0">}</span><span class="s4">s | Sample rate: </span><span class="s0">{</span><span class="s1">SAMPLE_RATE</span><span class="s0">}</span><span class="s4">Hz&quot;</span><span class="s3">)</span>
+
+    <span class="s1">window_len </span><span class="s3">= </span><span class="s1">int</span><span class="s3">(</span><span class="s1">WINDOW_SIZE </span><span class="s3">* </span><span class="s1">SAMPLE_RATE</span><span class="s3">)</span>
+    <span class="s1">hop_len </span><span class="s3">= </span><span class="s1">int</span><span class="s3">(</span><span class="s1">HOP_SIZE </span><span class="s3">* </span><span class="s1">SAMPLE_RATE</span><span class="s3">)</span>
+
+    <span class="s2"># Extraire tous les segments</span>
+    <span class="s1">segments </span><span class="s3">= []</span>
+    <span class="s1">timestamps </span><span class="s3">= []</span>
+
+    <span class="s0">for </span><span class="s1">start </span><span class="s0">in </span><span class="s1">range</span><span class="s3">(</span><span class="s5">0</span><span class="s3">, </span><span class="s1">len</span><span class="s3">(</span><span class="s1">y</span><span class="s3">) - </span><span class="s1">window_len </span><span class="s3">+ </span><span class="s5">1</span><span class="s3">, </span><span class="s1">hop_len</span><span class="s3">):</span>
+        <span class="s1">end </span><span class="s3">= </span><span class="s1">start </span><span class="s3">+ </span><span class="s1">window_len</span>
+        <span class="s1">segments</span><span class="s3">.</span><span class="s1">append</span><span class="s3">(</span><span class="s1">y</span><span class="s3">[</span><span class="s1">start</span><span class="s3">:</span><span class="s1">end</span><span class="s3">])</span>
+        <span class="s1">timestamps</span><span class="s3">.</span><span class="s1">append</span><span class="s3">((</span><span class="s1">start </span><span class="s3">/ </span><span class="s1">SAMPLE_RATE</span><span class="s3">, </span><span class="s1">end </span><span class="s3">/ </span><span class="s1">SAMPLE_RATE</span><span class="s3">))</span>
+
+    <span class="s1">print</span><span class="s3">(</span><span class="s4">f&quot;🔍 Processing </span><span class="s0">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">segments</span><span class="s3">)</span><span class="s0">} </span><span class="s4">windows...&quot;</span><span class="s3">)</span>
+
+    <span class="s2"># Prédire en batch ou segment par segment</span>
+    <span class="s1">all_predictions </span><span class="s3">= []</span>
+
+    <span class="s0">if </span><span class="s1">use_batch </span><span class="s0">and </span><span class="s1">len</span><span class="s3">(</span><span class="s1">segments</span><span class="s3">) &gt; </span><span class="s5">0</span><span class="s3">:</span>
+        <span class="s2"># Batch processing (plus rapide)</span>
+        <span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">range</span><span class="s3">(</span><span class="s5">0</span><span class="s3">, </span><span class="s1">len</span><span class="s3">(</span><span class="s1">segments</span><span class="s3">), </span><span class="s1">BATCH_SIZE</span><span class="s3">):</span>
+            <span class="s1">batch_segs </span><span class="s3">= </span><span class="s1">segments</span><span class="s3">[</span><span class="s1">i</span><span class="s3">:</span><span class="s1">i </span><span class="s3">+ </span><span class="s1">BATCH_SIZE</span><span class="s3">]</span>
+            <span class="s1">batch_results </span><span class="s3">= </span><span class="s1">predict_batch</span><span class="s3">(</span><span class="s1">batch_segs</span><span class="s3">)</span>
+
+            <span class="s0">for </span><span class="s1">j</span><span class="s3">, (</span><span class="s1">cls</span><span class="s3">, </span><span class="s1">conf</span><span class="s3">, </span><span class="s1">probs</span><span class="s3">) </span><span class="s0">in </span><span class="s1">enumerate</span><span class="s3">(</span><span class="s1">batch_results</span><span class="s3">):</span>
+                <span class="s0">if </span><span class="s1">conf </span><span class="s3">&gt;= </span><span class="s1">CONF_THRESHOLD</span><span class="s3">:</span>
+                    <span class="s1">all_predictions</span><span class="s3">.</span><span class="s1">append</span><span class="s3">(</span><span class="s1">cls</span><span class="s3">)</span>
+                <span class="s0">else</span><span class="s3">:</span>
+                    <span class="s1">all_predictions</span><span class="s3">.</span><span class="s1">append</span><span class="s3">(</span><span class="s4">&quot;unknown&quot;</span><span class="s3">)</span>
+    <span class="s0">else</span><span class="s3">:</span>
+        <span class="s2"># Single processing</span>
+        <span class="s0">for </span><span class="s1">y_seg </span><span class="s0">in </span><span class="s1">segments</span><span class="s3">:</span>
+            <span class="s1">cls</span><span class="s3">, </span><span class="s1">conf</span><span class="s3">, </span><span class="s1">probs </span><span class="s3">= </span><span class="s1">predict_segment</span><span class="s3">(</span><span class="s1">y_seg</span><span class="s3">)</span>
+            <span class="s0">if </span><span class="s1">conf </span><span class="s3">&gt;= </span><span class="s1">CONF_THRESHOLD</span><span class="s3">:</span>
+                <span class="s1">all_predictions</span><span class="s3">.</span><span class="s1">append</span><span class="s3">(</span><span class="s1">cls</span><span class="s3">)</span>
+            <span class="s0">else</span><span class="s3">:</span>
+                <span class="s1">all_predictions</span><span class="s3">.</span><span class="s1">append</span><span class="s3">(</span><span class="s4">&quot;unknown&quot;</span><span class="s3">)</span>
+
+    <span class="s1">print</span><span class="s3">(</span><span class="s4">f&quot;✅ Detection complete</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s3">)</span>
+
+    <span class="s0">return </span><span class="s1">all_predictions</span>
+
+
+<span class="s2"># ==============================</span>
+<span class="s2"># VOTE MAJORITAIRE</span>
+<span class="s2"># ==============================</span>
+<span class="s0">def </span><span class="s1">get_majority_vote</span><span class="s3">(</span><span class="s1">predictions</span><span class="s3">):</span>
+    <span class="s6">&quot;&quot;&quot;Retourne la classe la plus votée (excluant 'unknown')&quot;&quot;&quot;</span>
+    <span class="s2"># Filtrer les 'unknown'</span>
+    <span class="s1">valid_predictions </span><span class="s3">= [</span><span class="s1">p </span><span class="s0">for </span><span class="s1">p </span><span class="s0">in </span><span class="s1">predictions </span><span class="s0">if </span><span class="s1">p </span><span class="s3">!= </span><span class="s4">&quot;unknown&quot;</span><span class="s3">]</span>
+
+    <span class="s0">if not </span><span class="s1">valid_predictions</span><span class="s3">:</span>
+        <span class="s0">return </span><span class="s4">&quot;unknown&quot;</span><span class="s3">, </span><span class="s5">0</span><span class="s3">, </span><span class="s1">len</span><span class="s3">(</span><span class="s1">predictions</span><span class="s3">)</span>
+
+    <span class="s2"># Compter les votes</span>
+    <span class="s1">vote_counts </span><span class="s3">= </span><span class="s1">Counter</span><span class="s3">(</span><span class="s1">valid_predictions</span><span class="s3">)</span>
+    <span class="s1">most_common </span><span class="s3">= </span><span class="s1">vote_counts</span><span class="s3">.</span><span class="s1">most_common</span><span class="s3">(</span><span class="s5">1</span><span class="s3">)[</span><span class="s5">0</span><span class="s3">]</span>
+    <span class="s1">winner </span><span class="s3">= </span><span class="s1">most_common</span><span class="s3">[</span><span class="s5">0</span><span class="s3">]</span>
+    <span class="s1">winner_count </span><span class="s3">= </span><span class="s1">most_common</span><span class="s3">[</span><span class="s5">1</span><span class="s3">]</span>
+
+    <span class="s0">return </span><span class="s1">winner</span><span class="s3">, </span><span class="s1">winner_count</span><span class="s3">, </span><span class="s1">len</span><span class="s3">(</span><span class="s1">predictions</span><span class="s3">)</span>
+
+
+<span class="s2"># ==============================</span>
+<span class="s2"># MAIN</span>
+<span class="s2"># ==============================</span>
+<span class="s0">if </span><span class="s1">__name__ </span><span class="s3">== </span><span class="s4">&quot;__main__&quot;</span><span class="s3">:</span>
+    <span class="s1">test_file </span><span class="s3">= </span><span class="s4">&quot;/Users/joshuarose/Downloads/fan.wav&quot;</span>
+
+    <span class="s0">if not </span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">exists</span><span class="s3">(</span><span class="s1">test_file</span><span class="s3">):</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s4">f&quot;❌ File not found: </span><span class="s0">{</span><span class="s1">test_file</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s4">&quot;</span><span class="s0">\n</span><span class="s4">Files available in test_audio/:&quot;</span><span class="s3">)</span>
+        <span class="s0">for </span><span class="s1">item </span><span class="s0">in </span><span class="s1">os</span><span class="s3">.</span><span class="s1">listdir</span><span class="s3">(</span><span class="s4">&quot;test_audio&quot;</span><span class="s3">):</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s4">f&quot;  - </span><span class="s0">{</span><span class="s1">item</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s3">)</span>
+    <span class="s0">else</span><span class="s3">:</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s4">&quot;=&quot; </span><span class="s3">* </span><span class="s5">70</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s4">&quot;🚁 DRONE DETECTION - MAJORITY VOTE&quot;</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s4">&quot;=&quot; </span><span class="s3">* </span><span class="s5">70 </span><span class="s3">+ </span><span class="s4">&quot;</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s3">)</span>
+
+        <span class="s2"># Exécuter la détection</span>
+        <span class="s1">predictions </span><span class="s3">= </span><span class="s1">sliding_window_detect</span><span class="s3">(</span><span class="s1">test_file</span><span class="s3">, </span><span class="s1">use_batch</span><span class="s3">=</span><span class="s0">True</span><span class="s3">)</span>
+
+        <span class="s2"># Vote majoritaire</span>
+        <span class="s1">winner</span><span class="s3">, </span><span class="s1">winner_count</span><span class="s3">, </span><span class="s1">total_windows </span><span class="s3">= </span><span class="s1">get_majority_vote</span><span class="s3">(</span><span class="s1">predictions</span><span class="s3">)</span>
+
+        <span class="s2"># Afficher le résultat</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s4">&quot;</span><span class="s0">\n</span><span class="s4">&quot; </span><span class="s3">+ </span><span class="s4">&quot;=&quot; </span><span class="s3">* </span><span class="s5">70</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s4">&quot;🏆 Final Results&quot;</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s4">&quot;=&quot; </span><span class="s3">* </span><span class="s5">70</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s4">f&quot;</span><span class="s0">\n</span><span class="s4">🎯 Class Detected: </span><span class="s0">{</span><span class="s1">winner</span><span class="s3">.</span><span class="s1">upper</span><span class="s3">()</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s4">f&quot;📊 Votes: </span><span class="s0">{</span><span class="s1">winner_count</span><span class="s0">}</span><span class="s4">/</span><span class="s0">{</span><span class="s1">total_windows</span><span class="s0">} </span><span class="s4">windows (</span><span class="s0">{</span><span class="s1">winner_count </span><span class="s3">/ </span><span class="s1">total_windows </span><span class="s3">* </span><span class="s5">100</span><span class="s0">:</span><span class="s4">.1f</span><span class="s0">}</span><span class="s4">%)&quot;</span><span class="s3">)</span>
+
+        <span class="s2"># Afficher la répartition complète</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s4">f&quot;</span><span class="s0">\n</span><span class="s4">📈 Distribution of votes:&quot;</span><span class="s3">)</span>
+        <span class="s1">vote_counts </span><span class="s3">= </span><span class="s1">Counter</span><span class="s3">(</span><span class="s1">predictions</span><span class="s3">)</span>
+        <span class="s0">for </span><span class="s1">cls</span><span class="s3">, </span><span class="s1">count </span><span class="s0">in </span><span class="s1">vote_counts</span><span class="s3">.</span><span class="s1">most_common</span><span class="s3">():</span>
+            <span class="s1">percentage </span><span class="s3">= (</span><span class="s1">count </span><span class="s3">/ </span><span class="s1">total_windows</span><span class="s3">) * </span><span class="s5">100</span>
+            <span class="s1">bar </span><span class="s3">= </span><span class="s4">&quot;█&quot; </span><span class="s3">* </span><span class="s1">int</span><span class="s3">(</span><span class="s1">percentage </span><span class="s3">/ </span><span class="s5">2</span><span class="s3">)</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s4">f&quot;  </span><span class="s0">{</span><span class="s1">cls</span><span class="s0">:</span><span class="s4">12s</span><span class="s0">}</span><span class="s4">: </span><span class="s0">{</span><span class="s1">count</span><span class="s0">:</span><span class="s4">4d</span><span class="s0">} </span><span class="s4">(</span><span class="s0">{</span><span class="s1">percentage</span><span class="s0">:</span><span class="s4">5.1f</span><span class="s0">}</span><span class="s4">%) </span><span class="s0">{</span><span class="s1">bar</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s3">)</span>
+
+        <span class="s1">print</span><span class="s3">(</span><span class="s4">&quot;</span><span class="s0">\n</span><span class="s4">&quot; </span><span class="s3">+ </span><span class="s4">&quot;=&quot; </span><span class="s3">* </span><span class="s5">70</span><span class="s3">)</span></pre>
+</body>
+</html>

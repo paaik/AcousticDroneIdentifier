@@ -1,0 +1,157 @@
+<html>
+<head>
+<title>CNN_live.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cf8e6d;}
+.s1 { color: #bcbec4;}
+.s2 { color: #7a7e85;}
+.s3 { color: #bcbec4;}
+.s4 { color: #2aacb8;}
+.s5 { color: #6aab73;}
+.s6 { color: #5f826b; font-style: italic;}
+</style>
+</head>
+<body bgcolor="#191a1c">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+CNN_live.py</font>
+</center></td></tr></table>
+<pre><span class="s0">import </span><span class="s1">sounddevice </span><span class="s0">as </span><span class="s1">sd</span>
+<span class="s0">import </span><span class="s1">numpy </span><span class="s0">as </span><span class="s1">np</span>
+<span class="s0">import </span><span class="s1">librosa</span>
+<span class="s0">import </span><span class="s1">torch</span>
+<span class="s0">import </span><span class="s1">os</span>
+<span class="s0">import </span><span class="s1">queue</span>
+<span class="s0">from </span><span class="s1">train_cnn </span><span class="s0">import </span><span class="s1">DroneCNN</span>
+
+<span class="s2"># ==============================</span>
+<span class="s2"># CONFIG</span>
+<span class="s2"># ==============================</span>
+<span class="s1">SAMPLE_RATE </span><span class="s3">= </span><span class="s4">22050</span>
+<span class="s1">WINDOW_SIZE </span><span class="s3">= </span><span class="s4">1.0  </span><span class="s2"># 1 second sliding window</span>
+<span class="s1">HOP_SIZE </span><span class="s3">= </span><span class="s4">0.5  </span><span class="s2"># update every 0.5 second (stride)</span>
+<span class="s1">CONF_THRESHOLD </span><span class="s3">= </span><span class="s4">0.55</span>
+
+<span class="s1">MODEL_PATH </span><span class="s3">= </span><span class="s5">&quot;/Users/joshuarose/Downloads/models/drone_cnn_4class.pth&quot;</span>
+<span class="s1">DATA_MEL_DIR </span><span class="s3">= </span><span class="s5">&quot;/Users/joshuarose/Downloads/CNN_Training/audio_mels&quot;</span>
+
+<span class="s2"># ==============================</span>
+<span class="s2"># LOAD MODEL + CLASS NAMES</span>
+<span class="s2"># ==============================</span>
+<span class="s1">device </span><span class="s3">= </span><span class="s5">&quot;cuda&quot; </span><span class="s0">if </span><span class="s1">torch</span><span class="s3">.</span><span class="s1">cuda</span><span class="s3">.</span><span class="s1">is_available</span><span class="s3">() </span><span class="s0">else </span><span class="s5">&quot;cpu&quot;</span>
+
+<span class="s1">CLASS_NAMES </span><span class="s3">= </span><span class="s1">sorted</span><span class="s3">([</span>
+    <span class="s1">c </span><span class="s0">for </span><span class="s1">c </span><span class="s0">in </span><span class="s1">os</span><span class="s3">.</span><span class="s1">listdir</span><span class="s3">(</span><span class="s1">DATA_MEL_DIR</span><span class="s3">)</span>
+    <span class="s0">if </span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">isdir</span><span class="s3">(</span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">join</span><span class="s3">(</span><span class="s1">DATA_MEL_DIR</span><span class="s3">, </span><span class="s1">c</span><span class="s3">))</span>
+<span class="s3">])</span>
+<span class="s1">num_classes </span><span class="s3">= </span><span class="s1">len</span><span class="s3">(</span><span class="s1">CLASS_NAMES</span><span class="s3">)</span>
+
+<span class="s1">model </span><span class="s3">= </span><span class="s1">DroneCNN</span><span class="s3">(</span><span class="s1">num_classes</span><span class="s3">)</span>
+<span class="s1">model</span><span class="s3">.</span><span class="s1">load_state_dict</span><span class="s3">(</span><span class="s1">torch</span><span class="s3">.</span><span class="s1">load</span><span class="s3">(</span><span class="s1">MODEL_PATH</span><span class="s3">, </span><span class="s1">map_location</span><span class="s3">=</span><span class="s1">device</span><span class="s3">))</span>
+<span class="s1">model</span><span class="s3">.</span><span class="s1">to</span><span class="s3">(</span><span class="s1">device</span><span class="s3">)</span>
+<span class="s1">model</span><span class="s3">.</span><span class="s1">eval</span><span class="s3">()</span>
+
+<span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;🎧 Real-time Sliding Window Detection Initialized&quot;</span><span class="s3">)</span>
+<span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;Classes:&quot;</span><span class="s3">, </span><span class="s1">CLASS_NAMES</span><span class="s3">, </span><span class="s5">&quot;</span><span class="s0">\n</span><span class="s5">&quot;</span><span class="s3">)</span>
+
+
+<span class="s2"># ==============================</span>
+<span class="s2"># AUDIO PROCESSING FUNCTIONS</span>
+<span class="s2"># ==============================</span>
+<span class="s0">def </span><span class="s1">make_melspec</span><span class="s3">(</span><span class="s1">y</span><span class="s3">):</span>
+    <span class="s1">mel </span><span class="s3">= </span><span class="s1">librosa</span><span class="s3">.</span><span class="s1">feature</span><span class="s3">.</span><span class="s1">melspectrogram</span><span class="s3">(</span>
+        <span class="s1">y</span><span class="s3">=</span><span class="s1">y</span><span class="s3">,</span>
+        <span class="s1">sr</span><span class="s3">=</span><span class="s1">SAMPLE_RATE</span><span class="s3">,</span>
+        <span class="s1">n_fft</span><span class="s3">=</span><span class="s4">1024</span><span class="s3">,</span>
+        <span class="s1">hop_length</span><span class="s3">=</span><span class="s4">256</span><span class="s3">,</span>
+        <span class="s1">n_mels</span><span class="s3">=</span><span class="s4">64</span>
+    <span class="s3">)</span>
+    <span class="s1">logmel </span><span class="s3">= </span><span class="s1">librosa</span><span class="s3">.</span><span class="s1">power_to_db</span><span class="s3">(</span><span class="s1">mel</span><span class="s3">, </span><span class="s1">ref</span><span class="s3">=</span><span class="s1">np</span><span class="s3">.</span><span class="s1">max</span><span class="s3">)</span>
+    <span class="s1">logmel </span><span class="s3">= (</span><span class="s1">logmel </span><span class="s3">- </span><span class="s1">logmel</span><span class="s3">.</span><span class="s1">mean</span><span class="s3">()) / (</span><span class="s1">logmel</span><span class="s3">.</span><span class="s1">std</span><span class="s3">() + </span><span class="s4">1e-6</span><span class="s3">)</span>
+    <span class="s0">return </span><span class="s1">logmel</span>
+
+
+<span class="s0">def </span><span class="s1">predict_segment</span><span class="s3">(</span><span class="s1">y_seg</span><span class="s3">):</span>
+    <span class="s1">mel </span><span class="s3">= </span><span class="s1">make_melspec</span><span class="s3">(</span><span class="s1">y_seg</span><span class="s3">)</span>
+    <span class="s1">mel_t </span><span class="s3">= </span><span class="s1">torch</span><span class="s3">.</span><span class="s1">tensor</span><span class="s3">(</span><span class="s1">mel</span><span class="s3">).</span><span class="s1">float</span><span class="s3">().</span><span class="s1">unsqueeze</span><span class="s3">(</span><span class="s4">0</span><span class="s3">).</span><span class="s1">unsqueeze</span><span class="s3">(</span><span class="s4">0</span><span class="s3">).</span><span class="s1">to</span><span class="s3">(</span><span class="s1">device</span><span class="s3">)</span>
+
+    <span class="s0">with </span><span class="s1">torch</span><span class="s3">.</span><span class="s1">no_grad</span><span class="s3">():</span>
+        <span class="s1">pred </span><span class="s3">= </span><span class="s1">model</span><span class="s3">(</span><span class="s1">mel_t</span><span class="s3">)</span>
+        <span class="s1">prob </span><span class="s3">= </span><span class="s1">torch</span><span class="s3">.</span><span class="s1">softmax</span><span class="s3">(</span><span class="s1">pred</span><span class="s3">, </span><span class="s1">dim</span><span class="s3">=</span><span class="s4">1</span><span class="s3">)</span>
+
+    <span class="s1">conf</span><span class="s3">, </span><span class="s1">cls </span><span class="s3">= </span><span class="s1">torch</span><span class="s3">.</span><span class="s1">max</span><span class="s3">(</span><span class="s1">prob</span><span class="s3">, </span><span class="s1">dim</span><span class="s3">=</span><span class="s4">1</span><span class="s3">)</span>
+    <span class="s0">return </span><span class="s1">CLASS_NAMES</span><span class="s3">[</span><span class="s1">cls</span><span class="s3">.</span><span class="s1">item</span><span class="s3">()], </span><span class="s1">conf</span><span class="s3">.</span><span class="s1">item</span><span class="s3">()</span>
+
+
+<span class="s2"># ==============================</span>
+<span class="s2"># THREAD-SAFE AUDIO CAPTURE</span>
+<span class="s2"># ==============================</span>
+<span class="s1">audio_queue </span><span class="s3">= </span><span class="s1">queue</span><span class="s3">.</span><span class="s1">Queue</span><span class="s3">()</span>
+
+
+<span class="s0">def </span><span class="s1">audio_callback</span><span class="s3">(</span><span class="s1">indata</span><span class="s3">, </span><span class="s1">frames</span><span class="s3">, </span><span class="s1">time</span><span class="s3">, </span><span class="s1">status</span><span class="s3">):</span>
+    <span class="s6">&quot;&quot;&quot;Minimal footprint callback. Just pushes raw data to queue.&quot;&quot;&quot;</span>
+    <span class="s0">if </span><span class="s1">status</span><span class="s3">:</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s1">status</span><span class="s3">, </span><span class="s1">flush</span><span class="s3">=</span><span class="s0">True</span><span class="s3">)</span>
+    <span class="s2"># sounddevice delivers multi-channel arrays; flatten to mono</span>
+    <span class="s1">audio_queue</span><span class="s3">.</span><span class="s1">put</span><span class="s3">(</span><span class="s1">indata</span><span class="s3">.</span><span class="s1">copy</span><span class="s3">()[:, </span><span class="s4">0</span><span class="s3">])</span>
+
+
+<span class="s2"># ==============================</span>
+<span class="s2"># MAIN SLIDING WINDOW LOOP</span>
+<span class="s2"># ==============================</span>
+<span class="s0">def </span><span class="s1">main</span><span class="s3">():</span>
+    <span class="s2"># Calculate buffer sizes in sample points</span>
+    <span class="s1">window_samples </span><span class="s3">= </span><span class="s1">int</span><span class="s3">(</span><span class="s1">WINDOW_SIZE </span><span class="s3">* </span><span class="s1">SAMPLE_RATE</span><span class="s3">)</span>
+    <span class="s1">hop_samples </span><span class="s3">= </span><span class="s1">int</span><span class="s3">(</span><span class="s1">HOP_SIZE </span><span class="s3">* </span><span class="s1">SAMPLE_RATE</span><span class="s3">)</span>
+
+    <span class="s2"># Initialize our sliding history buffer</span>
+    <span class="s1">sliding_buffer </span><span class="s3">= </span><span class="s1">np</span><span class="s3">.</span><span class="s1">zeros</span><span class="s3">(</span><span class="s1">window_samples</span><span class="s3">, </span><span class="s1">dtype</span><span class="s3">=</span><span class="s1">np</span><span class="s3">.</span><span class="s1">float32</span><span class="s3">)</span>
+    <span class="s1">samples_since_last_prediction </span><span class="s3">= </span><span class="s4">0</span>
+
+    <span class="s2"># Match blocksize to your hop length for clean steps</span>
+    <span class="s1">stream </span><span class="s3">= </span><span class="s1">sd</span><span class="s3">.</span><span class="s1">InputStream</span><span class="s3">(</span>
+        <span class="s1">channels</span><span class="s3">=</span><span class="s4">1</span><span class="s3">,</span>
+        <span class="s1">samplerate</span><span class="s3">=</span><span class="s1">SAMPLE_RATE</span><span class="s3">,</span>
+        <span class="s1">blocksize</span><span class="s3">=</span><span class="s1">hop_samples</span><span class="s3">,</span>
+        <span class="s1">callback</span><span class="s3">=</span><span class="s1">audio_callback</span>
+    <span class="s3">)</span>
+
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;🎙️ Listening with SLIDING WINDOW... Press Ctrl+C to stop.</span><span class="s0">\n</span><span class="s5">&quot;</span><span class="s3">)</span>
+
+    <span class="s0">with </span><span class="s1">stream</span><span class="s3">:</span>
+        <span class="s0">while True</span><span class="s3">:</span>
+            <span class="s0">try</span><span class="s3">:</span>
+                <span class="s2"># Grab a chunk from the queue (blocks until data arrives)</span>
+                <span class="s1">new_chunk </span><span class="s3">= </span><span class="s1">audio_queue</span><span class="s3">.</span><span class="s1">get</span><span class="s3">()</span>
+                <span class="s1">chunk_len </span><span class="s3">= </span><span class="s1">len</span><span class="s3">(</span><span class="s1">new_chunk</span><span class="s3">)</span>
+
+                <span class="s2"># Shift buffer left and append new incoming chunk</span>
+                <span class="s1">sliding_buffer </span><span class="s3">= </span><span class="s1">np</span><span class="s3">.</span><span class="s1">roll</span><span class="s3">(</span><span class="s1">sliding_buffer</span><span class="s3">, -</span><span class="s1">chunk_len</span><span class="s3">)</span>
+                <span class="s1">sliding_buffer</span><span class="s3">[-</span><span class="s1">chunk_len</span><span class="s3">:] = </span><span class="s1">new_chunk</span>
+
+                <span class="s1">samples_since_last_prediction </span><span class="s3">+= </span><span class="s1">chunk_len</span>
+
+                <span class="s2"># Only predict when we've gathered at least one hop size of fresh data</span>
+                <span class="s0">if </span><span class="s1">samples_since_last_prediction </span><span class="s3">&gt;= </span><span class="s1">hop_samples</span><span class="s3">:</span>
+                    <span class="s1">label</span><span class="s3">, </span><span class="s1">conf </span><span class="s3">= </span><span class="s1">predict_segment</span><span class="s3">(</span><span class="s1">sliding_buffer</span><span class="s3">)</span>
+
+                    <span class="s0">if </span><span class="s1">conf </span><span class="s3">&gt;= </span><span class="s1">CONF_THRESHOLD</span><span class="s3">:</span>
+                        <span class="s1">print</span><span class="s3">(</span><span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;⚠️ [DETECTED] </span><span class="s0">{</span><span class="s1">label</span><span class="s0">} </span><span class="s5">(Conf: </span><span class="s0">{</span><span class="s1">conf</span><span class="s0">:</span><span class="s5">.2f</span><span class="s0">}</span><span class="s5">)&quot;</span><span class="s3">, </span><span class="s1">flush</span><span class="s3">=</span><span class="s0">True</span><span class="s3">))</span>
+                    <span class="s0">else</span><span class="s3">:</span>
+                        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;💤 Background noise... (Top: </span><span class="s0">{</span><span class="s1">label</span><span class="s0">} {</span><span class="s1">conf</span><span class="s0">:</span><span class="s5">.2f</span><span class="s0">}</span><span class="s5">)&quot;</span><span class="s3">, </span><span class="s1">flush</span><span class="s3">=</span><span class="s0">True</span><span class="s3">)</span>
+
+                    <span class="s1">samples_since_last_prediction </span><span class="s3">= </span><span class="s4">0</span>
+
+            <span class="s0">except </span><span class="s1">KeyboardInterrupt</span><span class="s3">:</span>
+                <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;</span><span class="s0">\n</span><span class="s5">🛑 Stream stopped.&quot;</span><span class="s3">)</span>
+                <span class="s0">break</span>
+
+
+<span class="s0">if </span><span class="s1">__name__ </span><span class="s3">== </span><span class="s5">&quot;__main__&quot;</span><span class="s3">:</span>
+    <span class="s1">main</span><span class="s3">()</span>
+</pre>
+</body>
+</html>

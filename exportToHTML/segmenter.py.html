@@ -1,0 +1,99 @@
+<html>
+<head>
+<title>segmenter.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cf8e6d;}
+.s1 { color: #bcbec4;}
+.s2 { color: #7a7e85;}
+.s3 { color: #bcbec4;}
+.s4 { color: #6aab73;}
+.s5 { color: #2aacb8;}
+</style>
+</head>
+<body bgcolor="#191a1c">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+segmenter.py</font>
+</center></td></tr></table>
+<pre><span class="s0">import </span><span class="s1">os</span>
+<span class="s0">import </span><span class="s1">librosa</span>
+<span class="s0">import </span><span class="s1">soundfile </span><span class="s0">as </span><span class="s1">sf</span>
+
+<span class="s2"># ===========================</span>
+<span class="s2"># CONFIG</span>
+<span class="s2"># ===========================</span>
+<span class="s1">INPUT_DIR </span><span class="s3">= </span><span class="s4">&quot;/Users/joshuarose/Downloads/Audio_data&quot;          </span><span class="s2"># chứa 4 folders: drone, birds, wind, vehicles</span>
+<span class="s1">OUTPUT_DIR </span><span class="s3">= </span><span class="s4">&quot;/Users/joshuarose/Downloads/audio_segment&quot;      </span><span class="s2"># output folder</span>
+<span class="s1">SEGMENT_DURATION </span><span class="s3">= </span><span class="s5">1.0            </span><span class="s2"># length of each segment (in seconds)</span>
+<span class="s1">OVERLAP </span><span class="s3">= </span><span class="s5">0.5                     </span><span class="s2"># 50% overlap</span>
+<span class="s1">TARGET_SR </span><span class="s3">= </span><span class="s5">22050                 </span><span class="s2"># sample rate to keep consistent</span>
+
+
+<span class="s2"># ===========================</span>
+<span class="s2"># Split ONE audio file</span>
+<span class="s2"># ===========================</span>
+<span class="s0">def </span><span class="s1">split_audio</span><span class="s3">(</span><span class="s1">input_path</span><span class="s3">, </span><span class="s1">out_folder</span><span class="s3">, </span><span class="s1">sr</span><span class="s3">=</span><span class="s1">TARGET_SR</span><span class="s3">):</span>
+    <span class="s1">y</span><span class="s3">, </span><span class="s1">orig_sr </span><span class="s3">= </span><span class="s1">librosa</span><span class="s3">.</span><span class="s1">load</span><span class="s3">(</span><span class="s1">input_path</span><span class="s3">, </span><span class="s1">sr</span><span class="s3">=</span><span class="s0">None</span><span class="s3">, </span><span class="s1">mono</span><span class="s3">=</span><span class="s0">True</span><span class="s3">)</span>
+
+    <span class="s2"># Resample nếu cần</span>
+    <span class="s0">if </span><span class="s1">orig_sr </span><span class="s3">!= </span><span class="s1">sr</span><span class="s3">:</span>
+        <span class="s1">y </span><span class="s3">= </span><span class="s1">librosa</span><span class="s3">.</span><span class="s1">resample</span><span class="s3">(</span><span class="s1">y</span><span class="s3">, </span><span class="s1">orig_sr</span><span class="s3">=</span><span class="s1">orig_sr</span><span class="s3">, </span><span class="s1">target_sr</span><span class="s3">=</span><span class="s1">sr</span><span class="s3">)</span>
+
+    <span class="s1">seg_len </span><span class="s3">= </span><span class="s1">int</span><span class="s3">(</span><span class="s1">sr </span><span class="s3">* </span><span class="s1">SEGMENT_DURATION</span><span class="s3">)</span>
+    <span class="s1">hop_len </span><span class="s3">= </span><span class="s1">int</span><span class="s3">(</span><span class="s1">seg_len </span><span class="s3">* (</span><span class="s5">1 </span><span class="s3">- </span><span class="s1">OVERLAP</span><span class="s3">))</span>
+
+    <span class="s1">os</span><span class="s3">.</span><span class="s1">makedirs</span><span class="s3">(</span><span class="s1">out_folder</span><span class="s3">, </span><span class="s1">exist_ok</span><span class="s3">=</span><span class="s0">True</span><span class="s3">)</span>
+
+    <span class="s1">count </span><span class="s3">= </span><span class="s5">0</span>
+    <span class="s0">for </span><span class="s1">start </span><span class="s0">in </span><span class="s1">range</span><span class="s3">(</span><span class="s5">0</span><span class="s3">, </span><span class="s1">len</span><span class="s3">(</span><span class="s1">y</span><span class="s3">) - </span><span class="s1">seg_len</span><span class="s3">, </span><span class="s1">hop_len</span><span class="s3">):</span>
+        <span class="s1">segment </span><span class="s3">= </span><span class="s1">y</span><span class="s3">[</span><span class="s1">start</span><span class="s3">:</span><span class="s1">start </span><span class="s3">+ </span><span class="s1">seg_len</span><span class="s3">]</span>
+        <span class="s1">out_path </span><span class="s3">= </span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">join</span><span class="s3">(</span><span class="s1">out_folder</span><span class="s3">, </span><span class="s4">f&quot;</span><span class="s0">{</span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">basename</span><span class="s3">(</span><span class="s1">input_path</span><span class="s3">)</span><span class="s0">}</span><span class="s4">_seg</span><span class="s0">{</span><span class="s1">count</span><span class="s0">}</span><span class="s4">.wav&quot;</span><span class="s3">)</span>
+        <span class="s1">sf</span><span class="s3">.</span><span class="s1">write</span><span class="s3">(</span><span class="s1">out_path</span><span class="s3">, </span><span class="s1">segment</span><span class="s3">, </span><span class="s1">sr</span><span class="s3">)</span>
+        <span class="s1">count </span><span class="s3">+= </span><span class="s5">1</span>
+
+    <span class="s0">return </span><span class="s1">count</span>
+
+
+<span class="s2"># ===========================</span>
+<span class="s2"># Process ALL classes/folders</span>
+<span class="s2"># ===========================</span>
+<span class="s0">def </span><span class="s1">process_all</span><span class="s3">():</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s4">&quot;Splitting audio into segments...</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s3">)</span>
+
+    <span class="s0">for </span><span class="s1">class_name </span><span class="s0">in </span><span class="s1">os</span><span class="s3">.</span><span class="s1">listdir</span><span class="s3">(</span><span class="s1">INPUT_DIR</span><span class="s3">):</span>
+        <span class="s1">class_path </span><span class="s3">= </span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">join</span><span class="s3">(</span><span class="s1">INPUT_DIR</span><span class="s3">, </span><span class="s1">class_name</span><span class="s3">)</span>
+
+        <span class="s2"># Skip non-folders</span>
+        <span class="s0">if not </span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">isdir</span><span class="s3">(</span><span class="s1">class_path</span><span class="s3">):</span>
+            <span class="s0">continue</span>
+
+        <span class="s1">print</span><span class="s3">(</span><span class="s4">f&quot;➡ Processing class: </span><span class="s0">{</span><span class="s1">class_name</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s3">)</span>
+
+        <span class="s2"># Output folder for this class</span>
+        <span class="s1">out_dir </span><span class="s3">= </span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">join</span><span class="s3">(</span><span class="s1">OUTPUT_DIR</span><span class="s3">, </span><span class="s1">class_name</span><span class="s3">)</span>
+        <span class="s1">os</span><span class="s3">.</span><span class="s1">makedirs</span><span class="s3">(</span><span class="s1">out_dir</span><span class="s3">, </span><span class="s1">exist_ok</span><span class="s3">=</span><span class="s0">True</span><span class="s3">)</span>
+
+        <span class="s2"># Loop through all WAV files in this class</span>
+        <span class="s0">for </span><span class="s1">file </span><span class="s0">in </span><span class="s1">os</span><span class="s3">.</span><span class="s1">listdir</span><span class="s3">(</span><span class="s1">class_path</span><span class="s3">):</span>
+            <span class="s0">if </span><span class="s1">file</span><span class="s3">.</span><span class="s1">endswith</span><span class="s3">(</span><span class="s4">&quot;.wav&quot;</span><span class="s3">):</span>
+                <span class="s1">input_path </span><span class="s3">= </span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">join</span><span class="s3">(</span><span class="s1">class_path</span><span class="s3">, </span><span class="s1">file</span><span class="s3">)</span>
+
+                <span class="s1">print</span><span class="s3">(</span><span class="s4">f&quot;   - Splitting file: </span><span class="s0">{</span><span class="s1">file</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s3">)</span>
+                <span class="s1">n_segments </span><span class="s3">= </span><span class="s1">split_audio</span><span class="s3">(</span><span class="s1">input_path</span><span class="s3">, </span><span class="s1">out_dir</span><span class="s3">)</span>
+                <span class="s1">print</span><span class="s3">(</span><span class="s4">f&quot;     ✔ Created </span><span class="s0">{</span><span class="s1">n_segments</span><span class="s0">} </span><span class="s4">segments.&quot;</span><span class="s3">)</span>
+
+        <span class="s1">print</span><span class="s3">()</span>
+
+    <span class="s1">print</span><span class="s3">(</span><span class="s4">&quot;🎉 Done! Segments saved in:&quot;</span><span class="s3">, </span><span class="s1">OUTPUT_DIR</span><span class="s3">)</span>
+
+
+<span class="s2"># ===========================</span>
+<span class="s2"># MAIN</span>
+<span class="s2"># ===========================</span>
+<span class="s0">if </span><span class="s1">__name__ </span><span class="s3">== </span><span class="s4">&quot;__main__&quot;</span><span class="s3">:</span>
+    <span class="s1">process_all</span><span class="s3">()</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<html>
+<head>
+<title>Mel_spec.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cf8e6d;}
+.s1 { color: #bcbec4;}
+.s2 { color: #bcbec4;}
+.s3 { color: #6aab73;}
+.s4 { color: #2aacb8;}
+</style>
+</head>
+<body bgcolor="#191a1c">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Mel_spec.py</font>
+</center></td></tr></table>
+<pre><span class="s0">import </span><span class="s1">os</span>
+<span class="s0">import </span><span class="s1">librosa</span>
+<span class="s0">import </span><span class="s1">numpy </span><span class="s0">as </span><span class="s1">np</span>
+
+<span class="s1">INPUT_DIR </span><span class="s2">= </span><span class="s3">&quot;/Users/joshuarose/Downloads/audio_segment&quot;</span>
+<span class="s1">OUTPUT_DIR </span><span class="s2">= </span><span class="s3">&quot;/Users/joshuarose/Downloads/audio_mels&quot;</span>
+
+<span class="s0">def </span><span class="s1">extract_melspec</span><span class="s2">(</span><span class="s1">filepath</span><span class="s2">, </span><span class="s1">sr</span><span class="s2">=</span><span class="s4">22050</span><span class="s2">, </span><span class="s1">n_mels</span><span class="s2">=</span><span class="s4">64</span><span class="s2">):</span>
+    <span class="s1">y</span><span class="s2">, </span><span class="s1">orig_sr </span><span class="s2">= </span><span class="s1">librosa</span><span class="s2">.</span><span class="s1">load</span><span class="s2">(</span><span class="s1">filepath</span><span class="s2">, </span><span class="s1">sr</span><span class="s2">=</span><span class="s0">None</span><span class="s2">, </span><span class="s1">mono</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+    <span class="s0">if </span><span class="s1">orig_sr </span><span class="s2">!= </span><span class="s1">sr</span><span class="s2">:</span>
+        <span class="s1">y </span><span class="s2">= </span><span class="s1">librosa</span><span class="s2">.</span><span class="s1">resample</span><span class="s2">(</span><span class="s1">y</span><span class="s2">, </span><span class="s1">orig_sr</span><span class="s2">=</span><span class="s1">orig_sr</span><span class="s2">, </span><span class="s1">target_sr</span><span class="s2">=</span><span class="s1">sr</span><span class="s2">)</span>
+
+    <span class="s1">S </span><span class="s2">= </span><span class="s1">librosa</span><span class="s2">.</span><span class="s1">feature</span><span class="s2">.</span><span class="s1">melspectrogram</span><span class="s2">(</span>
+        <span class="s1">y</span><span class="s2">=</span><span class="s1">y</span><span class="s2">,</span>
+        <span class="s1">sr</span><span class="s2">=</span><span class="s1">sr</span><span class="s2">,</span>
+        <span class="s1">n_fft</span><span class="s2">=</span><span class="s4">1024</span><span class="s2">,</span>
+        <span class="s1">hop_length</span><span class="s2">=</span><span class="s4">256</span><span class="s2">,</span>
+        <span class="s1">n_mels</span><span class="s2">=</span><span class="s1">n_mels</span>
+    <span class="s2">)</span>
+
+    <span class="s1">log_S </span><span class="s2">= </span><span class="s1">librosa</span><span class="s2">.</span><span class="s1">power_to_db</span><span class="s2">(</span><span class="s1">S</span><span class="s2">, </span><span class="s1">ref</span><span class="s2">=</span><span class="s1">np</span><span class="s2">.</span><span class="s1">max</span><span class="s2">)</span>
+    <span class="s0">return </span><span class="s1">log_S</span>
+
+
+<span class="s0">def </span><span class="s1">process_segments</span><span class="s2">():</span>
+    <span class="s0">for </span><span class="s1">root</span><span class="s2">, </span><span class="s1">dirs</span><span class="s2">, </span><span class="s1">files </span><span class="s0">in </span><span class="s1">os</span><span class="s2">.</span><span class="s1">walk</span><span class="s2">(</span><span class="s1">INPUT_DIR</span><span class="s2">):</span>
+        <span class="s0">for </span><span class="s1">file </span><span class="s0">in </span><span class="s1">files</span><span class="s2">:</span>
+            <span class="s0">if </span><span class="s1">file</span><span class="s2">.</span><span class="s1">endswith</span><span class="s2">(</span><span class="s3">&quot;.wav&quot;</span><span class="s2">):</span>
+                <span class="s1">input_path </span><span class="s2">= </span><span class="s1">os</span><span class="s2">.</span><span class="s1">path</span><span class="s2">.</span><span class="s1">join</span><span class="s2">(</span><span class="s1">root</span><span class="s2">, </span><span class="s1">file</span><span class="s2">)</span>
+
+                <span class="s1">class_name </span><span class="s2">= </span><span class="s1">os</span><span class="s2">.</span><span class="s1">path</span><span class="s2">.</span><span class="s1">basename</span><span class="s2">(</span><span class="s1">root</span><span class="s2">)</span>
+                <span class="s1">out_dir </span><span class="s2">= </span><span class="s1">os</span><span class="s2">.</span><span class="s1">path</span><span class="s2">.</span><span class="s1">join</span><span class="s2">(</span><span class="s1">OUTPUT_DIR</span><span class="s2">, </span><span class="s1">class_name</span><span class="s2">)</span>
+                <span class="s1">os</span><span class="s2">.</span><span class="s1">makedirs</span><span class="s2">(</span><span class="s1">out_dir</span><span class="s2">, </span><span class="s1">exist_ok</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+                <span class="s1">mel </span><span class="s2">= </span><span class="s1">extract_melspec</span><span class="s2">(</span><span class="s1">input_path</span><span class="s2">)</span>
+
+                <span class="s1">out_path </span><span class="s2">= </span><span class="s1">os</span><span class="s2">.</span><span class="s1">path</span><span class="s2">.</span><span class="s1">join</span><span class="s2">(</span><span class="s1">out_dir</span><span class="s2">, </span><span class="s1">file</span><span class="s2">.</span><span class="s1">replace</span><span class="s2">(</span><span class="s3">&quot;.wav&quot;</span><span class="s2">, </span><span class="s3">&quot;.npy&quot;</span><span class="s2">))</span>
+                <span class="s1">np</span><span class="s2">.</span><span class="s1">save</span><span class="s2">(</span><span class="s1">out_path</span><span class="s2">, </span><span class="s1">mel</span><span class="s2">)</span>
+
+                <span class="s1">print</span><span class="s2">(</span><span class="s3">f&quot;Saved mel-spectrogram: </span><span class="s0">{</span><span class="s1">out_path</span><span class="s0">}</span><span class="s3">&quot;</span><span class="s2">)</span>
+
+
+<span class="s0">if </span><span class="s1">__name__ </span><span class="s2">== </span><span class="s3">&quot;__main__&quot;</span><span class="s2">:</span>
+    <span class="s1">process_segments</span><span class="s2">()</span></pre>
+</body>
+</html>
