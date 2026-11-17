@@ -27,6 +27,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Charger le checkpoint complet pour obtenir les class names
 checkpoint = torch.load(MODEL_PATH, map_location=device)
+model.load_state_dict(checkpoint["model_state_dict"])
 
 # Vérifier si c'est un checkpoint complet ou juste le state_dict
 if isinstance(checkpoint, dict) and 'class_names' in checkpoint:
@@ -250,7 +251,7 @@ def get_majority_vote(predictions):
 # MAIN
 # ==============================
 if __name__ == "__main__":
-    test_file = "/Users/joshuarose/Downloads/fan.wav"
+    test_file = "C:/Users/hanna/Documents/Github-Clone1/DroneIdentifier/test_audio/Test01.wav"
 
     if not os.path.exists(test_file):
         print(f"❌ File not found: {test_file}")

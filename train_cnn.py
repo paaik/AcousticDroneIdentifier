@@ -140,7 +140,7 @@ def train():
         print(f"Epoch {epoch+1}/{EPOCHS} | Loss: {running_loss:.3f} | Val Acc: {val_acc:.2f}%")
 
     os.makedirs("models", exist_ok=True)
-    torch.save(model.state_dict(), "/Users/joshuarose/Downloads/models/drone_cnn_4class.pth")
+    torch.save(model.state_dict(), "C:/Users/hanna/Documents/Github-Clone1/DroneIdentifier/models/drone_cnn_4class.pth")
     print("\nModel saved → models/drone_cnn_4class.pth")
     print("Classes:", class_names)
 

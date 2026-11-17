@@ -2,8 +2,8 @@ import os
 import librosa
 import numpy as np
 
-INPUT_DIR = "/Users/joshuarose/Downloads/audio_segment"
-OUTPUT_DIR = "/Users/joshuarose/Downloads/audio_mels"
+INPUT_DIR = "C:/Users/hanna/Documents/Github-Clone1/DroneIdentifier/audio_segment"
+OUTPUT_DIR = "C:/Users/hanna/Documents/Github-Clone1/DroneIdentifier/audio_mels"
 
 def extract_melspec(filepath, sr=22050, n_mels=64):
     y, orig_sr = librosa.load(filepath, sr=None, mono=True)

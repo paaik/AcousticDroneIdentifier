@@ -4,7 +4,7 @@ import librosa
 import torch
 import os
 import queue
-from train_cnn import DroneCNN
+from scripts.Full_training_pipeline import DroneCNN
 
 # ==============================
 # CONFIG
@@ -29,7 +29,9 @@ CLASS_NAMES = sorted([
 num_classes = len(CLASS_NAMES)
 
 model = DroneCNN(num_classes)
-model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
+checkpoint = torch.load(MODEL_PATH, map_location=device)
+model.load_state_dict(checkpoint["model_state_dict"])
+
 model.to(device)
 model.eval()
 

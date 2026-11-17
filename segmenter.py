@@ -5,8 +5,8 @@ import soundfile as sf
 # ===========================
 # CONFIG
 # ===========================
-INPUT_DIR = "/Users/joshuarose/Downloads/Audio_data"          # chứa 4 folders: drone, birds, wind, vehicles
-OUTPUT_DIR = "/Users/joshuarose/Downloads/audio_segment"      # output folder
+INPUT_DIR = "C:/Users/hanna/Documents/Github-Clone1/DroneIdentifier/data_files"          # chứa 4 folders: drone, birds, wind, vehicles
+OUTPUT_DIR = "C:/Users/hanna/Documents/Github-Clone1/DroneIdentifier/audio_segment"      # output folder
 SEGMENT_DURATION = 1.0            # length of each segment (in seconds)
 OVERLAP = 0.5                     # 50% overlap
 TARGET_SR = 22050                 # sample rate to keep consistent
