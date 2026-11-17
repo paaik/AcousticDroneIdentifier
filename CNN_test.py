@@ -10,8 +10,8 @@ from train_cnn import DroneCNN  # dùng model class avec hyperparameter tuning
 # ==============================
 # CONFIG
 # ==============================
-MODEL_PATH = "/Users/joshuarose/Downloads/models/drone_cnn_4class.pth"
-DATA_MEL_DIR = "/Users/joshuarose/Downloads/CNN_Training/audio_mels"
+MODEL_PATH = "C:/Users/hanna/Documents/Github-Clone1/DroneIdentifier/models/drone_cnn_4class_best.pth"
+DATA_MEL_DIR = "C:/Users/hanna/Documents/Github-Clone1/DroneIdentifier/audio_mels"
 
 SAMPLE_RATE = 22050
 WINDOW_SIZE = 2.0  # mỗi cửa sổ 2 giây

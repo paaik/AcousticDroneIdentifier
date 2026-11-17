@@ -14,8 +14,8 @@ WINDOW_SIZE = 1.0  # 1 second sliding window
 HOP_SIZE = 0.5  # update every 0.5 second (stride)
 CONF_THRESHOLD = 0.55
 
-MODEL_PATH = "/Users/joshuarose/Downloads/models/drone_cnn_4class.pth"
-DATA_MEL_DIR = "/Users/joshuarose/Downloads/CNN_Training/audio_mels"
+MODEL_PATH = "C:/Users/hanna/Documents/Github-Clone1/DroneIdentifier/models/drone_cnn_4class.pth"
+DATA_MEL_DIR = "C:/Users/hanna/Documents/Github-Clone1/DroneIdentifier/audio_mels"
 
 # ==============================
 # LOAD MODEL + CLASS NAMES

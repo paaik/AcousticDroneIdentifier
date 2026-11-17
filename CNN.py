@@ -6,7 +6,7 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
 
 
-DATA_DIR = "/Users/joshuarose/Downloads/audio_mels"   # vẫn dùng thư mục này
+DATA_DIR = "C:/Users/hanna/Documents/Github-Clone1/DroneIdentifier/audio_mels"   # vẫn dùng thư mục này
 BATCH_SIZE = 16
 EPOCHS = 35
 LR = 0.001
